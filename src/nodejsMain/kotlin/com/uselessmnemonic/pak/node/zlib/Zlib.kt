@@ -13,7 +13,7 @@ external interface ZlibOptions {
     val level: Number
     val memLevel: Number
     val strategy: Number
-    val dictionary: dynamic
+    val dictionary: dynamic /* string | number[] */
     val info: Boolean
     val maxOutputLength: Number
 }

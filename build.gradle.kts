@@ -24,12 +24,16 @@ kotlin {
     }
     linuxX64()
     sourceSets {
-        val commonMain by getting
+        val commonMain by getting {
+            dependencies {
+                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+            }
+        }
         val jvmMain by getting
         val browserMain by getting {
             dependsOn(commonMain)
             dependencies {
-                implementation(npm("com.uselessmnemonic.pak.pako", "2.1.0"))
+                implementation(npm("pako", "2.1.0"))
             }
         }
         val nodejsMain by getting {
