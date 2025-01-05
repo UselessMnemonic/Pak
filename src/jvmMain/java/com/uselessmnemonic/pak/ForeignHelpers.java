@@ -51,7 +51,10 @@ final class ForeignHelpers {
                 largestAlignment = e.byteAlignment();
             }
         }
-        list.add(MemoryLayout.paddingLayout(runningSize % largestAlignment));
+        var tail = runningSize % largestAlignment;
+        if (tail != 0) {
+            list.add(MemoryLayout.paddingLayout(tail));
+        }
         return MemoryLayout.structLayout(list.toArray(new MemoryLayout[0]));
     }
 
