@@ -122,8 +122,6 @@ final class ZLib {
         }
     }
 
-    public static final String version = zlibVersion.getString(0);
-
     public static int deflateInit(MemorySegment stream, int level) throws Throwable {
         return (int) deflateInitHandle.invokeExact(stream, level, zlibVersion, (int) stream.byteSize());
     }
