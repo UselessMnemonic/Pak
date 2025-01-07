@@ -25,7 +25,7 @@ class BasicDeflateTests : FunSpec ({
 
         // deflate block
         val stream = ZStream()
-        val deflateOutput = ByteArray(1024)
+        var deflateOutput = ByteArray(1024)
 
         stream.deflateInit(ZCompressionLevel.DefaultCompression)
         stream.setInput(HelloWorldUncompressed)
@@ -35,17 +35,17 @@ class BasicDeflateTests : FunSpec ({
         stream.totalIn shouldBeExactly HelloWorldUncompressed.size.toULong()
         stream.totalOut shouldBeGreaterThan stream.totalIn
 
-        val deflateOutputLength = stream.totalOut
         stream.deflateEnd()
+        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         // inflate block
         val inflateOutput = ByteArray(HelloWorldUncompressed.size)
         stream.inflateInit()
-        stream.setInput(deflateOutput, IntRange(0, deflateOutputLength.toInt() - 1))
+        stream.setInput(deflateOutput)
         stream.setOutput(inflateOutput)
 
         stream.inflate(ZFlush.Finish) shouldBe ZResult.StreamEnd
-        stream.totalIn shouldBeExactly deflateOutputLength
+        stream.totalIn shouldBeExactly deflateOutput.size.toULong()
         stream.totalOut shouldBeExactly HelloWorldUncompressed.size.toULong()
         inflateOutput.take(HelloWorldUncompressed.size) shouldContainExactly HelloWorldUncompressed.asIterable()
         stream.inflateEnd()
@@ -57,7 +57,7 @@ class BasicDeflateTests : FunSpec ({
 
         // deflate block
         val stream = ZStream()
-        val deflateOutput = ByteArray(1024)
+        var deflateOutput = ByteArray(1024)
 
         stream.deflateInit(ZCompressionLevel.DefaultCompression)
         stream.setInput(LoremIpsumUncompressed)
@@ -67,17 +67,17 @@ class BasicDeflateTests : FunSpec ({
         stream.totalIn shouldBeExactly LoremIpsumUncompressed.size.toULong()
         stream.totalOut shouldBeLessThan stream.totalIn
 
-        val deflateOutputLength = stream.totalOut
         stream.deflateEnd()
+        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         // inflate block
         val inflateOutput = ByteArray(LoremIpsumUncompressed.size)
         stream.inflateInit()
-        stream.setInput(deflateOutput, IntRange(0, deflateOutputLength.toInt() - 1))
+        stream.setInput(deflateOutput)
         stream.setOutput(inflateOutput)
 
         stream.inflate(ZFlush.Finish) shouldBe ZResult.StreamEnd
-        stream.totalIn shouldBeExactly deflateOutputLength
+        stream.totalIn shouldBeExactly deflateOutput.size.toULong()
         stream.totalOut shouldBeExactly LoremIpsumUncompressed.size.toULong()
         inflateOutput.take(LoremIpsumUncompressed.size) shouldContainExactly LoremIpsumUncompressed.asIterable()
         stream.inflateEnd()
