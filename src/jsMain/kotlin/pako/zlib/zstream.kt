@@ -11,7 +11,7 @@ external class zstream {
     var avail_out: Number
     var total_out: Number
     var msg: String
-    var state: dynamic
-    var data_type: Number
+    //var state: dynamic
+    //var data_type: Number
     var adler: Number
 }
