@@ -16,27 +16,35 @@ class JsZStream : ZStream {
     }
 
     override fun setInput(buffer: ByteArray, indices: IntRange) {
+        val zRef = zRef!!
         if (indices.isEmpty()) {
-            zRef!!.input = null
-            zRef!!.next_in = -1
-            zRef!!.avail_in = 0
-        } else {
-            zRef!!.input = buffer
-            zRef!!.next_in = indices.first
-            zRef!!.avail_in = (indices.last - indices.first) + 1
+            zRef.input = null
+            zRef.next_in = 0
+            zRef.avail_in = 0
+            return
         }
+        if (indices.first < 0 || indices.last >= buffer.size) {
+            throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
+        }
+        zRef.input = buffer
+        zRef.next_in = indices.first
+        zRef.avail_in = indices.last - indices.first + 1
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
+        val zRef = zRef!!
         if (indices.isEmpty()) {
-            zRef!!.output = null
-            zRef!!.next_out = -1
-            zRef!!.avail_out = 0
-        } else {
-            zRef!!.output = buffer
-            zRef!!.next_out = indices.first
-            zRef!!.avail_out = (indices.last - indices.first) + 1
+            zRef.output = null
+            zRef.next_out = 0
+            zRef.avail_out = 0
+            return
         }
+        if (indices.first < 0 || indices.last >= buffer.size) {
+            throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
+        }
+        zRef.output = buffer
+        zRef.next_out = indices.first
+        zRef.avail_out = indices.last - indices.first + 1
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
