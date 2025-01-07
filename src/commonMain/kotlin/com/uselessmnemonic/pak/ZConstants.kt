@@ -1,7 +1,5 @@
 package com.uselessmnemonic.pak
 
-import kotlin.jvm.JvmName
-
 /**
  * The flushing strategies.
  *
