@@ -34,9 +34,9 @@ class BasicDeflateTests : FunSpec ({
         stream.deflate(ZFlush.Finish) shouldBe ZResult.StreamEnd
         stream.totalIn shouldBeExactly HelloWorldUncompressed.size.toULong()
         stream.totalOut shouldBeGreaterThan stream.totalIn
+        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         stream.deflateEnd()
-        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         // inflate block
         val inflateOutput = ByteArray(HelloWorldUncompressed.size)
@@ -66,9 +66,9 @@ class BasicDeflateTests : FunSpec ({
         stream.deflate(ZFlush.Finish) shouldBe ZResult.StreamEnd
         stream.totalIn shouldBeExactly LoremIpsumUncompressed.size.toULong()
         stream.totalOut shouldBeLessThan stream.totalIn
+        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         stream.deflateEnd()
-        deflateOutput = deflateOutput.sliceArray(IntRange(0, stream.totalOut.toInt() - 1))
 
         // inflate block
         val inflateOutput = ByteArray(LoremIpsumUncompressed.size)
