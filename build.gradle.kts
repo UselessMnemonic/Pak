@@ -24,6 +24,10 @@ kotlin {
             moduleName = "com.uselessmnemonic.pak"
         }
     }
+    js {
+        useCommonJs()
+        nodejs()
+    }
     mingwX64()
 
     sourceSets {
@@ -36,6 +40,11 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation("io.kotest:kotest-runner-junit5:6.0.0.M1")
+            }
+        }
+        jsMain {
+            dependencies {
+                implementation(npm("pako", "2.1.0"))
             }
         }
     }
