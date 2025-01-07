@@ -35,3 +35,5 @@ val HelloWorldCompressed = ubyteArrayOf(120u, 156u, 242u, 72u, 205u, 201u, 201u,
     81u, 4u, 4u, 0u, 0u, 255u, 255u, 31u, 158u, 4u, 106u).asByteArray()
 
 val HelloWorldUncompressed = "Hello, World!".encodeToByteArray()
+
+val EmptyStringCompressed = ubyteArrayOf(120u, 156u, 3u, 0u, 0u, 0u, 0u, 1u).asByteArray()

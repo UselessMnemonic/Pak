@@ -9,7 +9,7 @@ class BasicInflateTests : FunSpec ({
     test("inflate empty byte array") {
         val stream = ZStream()
         stream.inflateInit()
-        stream.setInput(byteArrayOf(120, 156.toByte(), 3, 0, 0, 0, 0, 1)) // e.g. empty string
+        stream.setInput(EmptyStringCompressed) // e.g. empty string
         stream.setOutput(ByteArray(1))
 
         stream.inflate(ZFlush.Finish) shouldBe ZResult.StreamEnd
