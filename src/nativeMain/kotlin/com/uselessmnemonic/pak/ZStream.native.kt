@@ -42,8 +42,16 @@ class NativeZStream : ZStream {
         input = ByteArrayZBuffer(buffer, indices)
     }
 
+    fun setInput(pointer: CPointer<UByteVar>, byteSize: UInt) {
+        input = NativeZBuffer(pointer, byteSize)
+    }
+
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
         output = ByteArrayZBuffer(buffer, indices)
+    }
+
+    fun setOutput(pointer: CPointer<UByteVar>, byteSize: UInt) {
+        output = NativeZBuffer(pointer, byteSize)
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
