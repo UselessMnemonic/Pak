@@ -7,30 +7,26 @@ import java.lang.foreign.StructLayout;
 import java.lang.foreign.ValueLayout;
 
 class ZStreamRef implements AutoCloseable {
-    private static final StructLayout z_streamLayout;
+    private static final StructLayout z_streamLayout = ForeignHelpers.autoPad(
+        ValueLayout.ADDRESS.withName("next_in"),
+        ValueLayout.JAVA_INT.withName("avail_in"),
+        ZLib.ULONG.withName("total_in"),
 
-    static {
-        z_streamLayout = ForeignHelpers.autoPad(
-            ValueLayout.ADDRESS.withName("next_in"),
-            ValueLayout.JAVA_INT.withName("avail_in"),
-            ZLib.ULONG.withName("total_in"),
+        ValueLayout.ADDRESS.withName("next_out"),
+        ValueLayout.JAVA_INT.withName("avail_out"),
+        ZLib.ULONG.withName("total_out"),
 
-            ValueLayout.ADDRESS.withName("next_out"),
-            ValueLayout.JAVA_INT.withName("avail_out"),
-            ZLib.ULONG.withName("total_out"),
+        ValueLayout.ADDRESS.withName("msg"),
+        ValueLayout.ADDRESS.withName("state"),
 
-            ValueLayout.ADDRESS.withName("msg"),
-            ValueLayout.ADDRESS.withName("state"),
+        ValueLayout.ADDRESS.withName("zalloc"),
+        ValueLayout.ADDRESS.withName("zfree"),
+        ValueLayout.ADDRESS.withName("opaque"),
 
-            ValueLayout.ADDRESS.withName("zalloc"),
-            ValueLayout.ADDRESS.withName("zfree"),
-            ValueLayout.ADDRESS.withName("opaque"),
-
-            ValueLayout.JAVA_INT.withName("data_type"),
-            ZLib.ULONG.withName("adler"),
-            ZLib.ULONG // reserved
-        ).withName("z_stream");
-    }
+        ValueLayout.JAVA_INT.withName("data_type"),
+        ZLib.ULONG.withName("adler"),
+        ZLib.ULONG // reserved
+    ).withName("z_stream");
 
     private static final long total_inOffset = z_streamLayout.byteOffset(PathElement.groupElement("total_in"));
     private static final long total_outOffset = z_streamLayout.byteOffset(PathElement.groupElement("total_out"));
@@ -134,7 +130,14 @@ class ZStreamRef implements AutoCloseable {
     }
 
     int deflate(int flush) throws Throwable {
-        return PakExt.criticalDeflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var prevTotalIn = getTotalIn();
+        var prevTotalOut = getTotalOut();
+        var result = PakExt.criticalDeflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var totalRead = getTotalIn() - prevTotalIn;
+        var totalWrite = getTotalOut() - prevTotalOut;
+        input = input.asSlice(totalRead);
+        output = output.asSlice(totalWrite);
+        return result;
     }
 
     int deflateReset() throws Throwable {
@@ -168,7 +171,14 @@ class ZStreamRef implements AutoCloseable {
     }
 
     int inflate(int flush) throws Throwable {
-        return PakExt.criticalInflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var prevTotalIn = getTotalIn();
+        var prevTotalOut = getTotalOut();
+        var result = PakExt.criticalInflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var totalRead = getTotalIn() - prevTotalIn;
+        var totalWrite = getTotalOut() - prevTotalOut;
+        input = input.asSlice(totalRead);
+        output = output.asSlice(totalWrite);
+        return result;
     }
 
     int inflateReset() throws Throwable {

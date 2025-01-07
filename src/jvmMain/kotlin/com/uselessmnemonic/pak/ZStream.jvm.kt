@@ -23,8 +23,16 @@ class JavaZStream : ZStream {
         zRef.input = buffer.asMemorySegment(indices)
     }
 
+    fun setInput(buffer: MemorySegment) {
+        zRef.input = buffer
+    }
+
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
         zRef.output = buffer.asMemorySegment(indices)
+    }
+
+    fun setOutput(buffer: MemorySegment) {
+        zRef.output = buffer
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
@@ -85,16 +93,9 @@ class JavaZStream : ZStream {
     }
 
     override fun deflate(flush: ZFlush): ZResult {
-        val prevTotalIn = totalIn
-        val prevTotalOut = totalOut
-        val result = parseResult(
+        return parseResult(
             zRef.deflate(flush.value)
         )
-        val totalRead = totalIn - prevTotalIn
-        val totalWrite = totalOut - prevTotalOut
-        zRef.input = zRef.input.asSlice(totalRead.toLong())
-        zRef.output = zRef.output.asSlice(totalWrite.toLong())
-        return result
     }
 
     override fun deflateReset(): ZResult {
@@ -161,16 +162,9 @@ class JavaZStream : ZStream {
     }
 
     override fun inflate(flush: ZFlush): ZResult {
-        val prevTotalIn = totalIn
-        val prevTotalOut = totalOut
-        val result = parseResult(
+        return parseResult(
             zRef.inflate(flush.value)
         )
-        val totalRead = totalIn - prevTotalIn
-        val totalWrite = totalOut - prevTotalOut
-        zRef.input = zRef.input.asSlice(totalRead.toLong())
-        zRef.output = zRef.output.asSlice(totalWrite.toLong())
-        return result
     }
 
     override fun inflateReset(): ZResult {
