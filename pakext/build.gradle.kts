@@ -21,8 +21,8 @@ val targets = mutableListOf<TargetSpec>(
 
 val updateTask = tasks.create<Exec>("update") {
     group = "cargo"
-    var cargoToml = layout.projectDirectory.file("Cargo.toml")
-    var cargoLock = layout.projectDirectory.file("Cargo.lock")
+    val cargoToml = layout.projectDirectory.file("Cargo.toml")
+    val cargoLock = layout.projectDirectory.file("Cargo.lock")
     inputs.file(cargoToml)
     outputs.file(cargoLock)
     commandLine(cargo.asFile, "update")
@@ -32,7 +32,7 @@ val updateTask = tasks.create<Exec>("update") {
 val buildAllTask = tasks.create("buildAll") {
     group = "cargo"
     for (target in targets) {
-        var tree = layout.buildDirectory.get().dir(target.target).dir(profile).asFileTree.matching {
+        val tree = layout.buildDirectory.get().dir(target.target).dir(profile).asFileTree.matching {
             include("${project.name}.dll")
             include("lib${project.name}.dylib")
             include("lib${project.name}.so")
@@ -44,7 +44,7 @@ val buildAllTask = tasks.create("buildAll") {
 for (target in targets) {
     val buildTask = tasks.create<Exec>("build${target.name}") {
         group = "cargo"
-        var targetDir = layout.buildDirectory.dir(target.target)
+        val targetDir = layout.buildDirectory.dir(target.target)
         inputs.files(rustSrc)
         outputs.dir(targetDir)
 

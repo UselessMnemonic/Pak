@@ -29,6 +29,8 @@ kotlin {
         nodejs()
     }
     mingwX64()
+    //macosX64()
+    //linuxX64()
 
     sourceSets {
         commonTest {
