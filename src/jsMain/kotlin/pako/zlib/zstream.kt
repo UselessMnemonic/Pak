@@ -1,12 +1,14 @@
 package pako.zlib
 
+import org.khronos.webgl.Uint8Array
+
 @JsModule("pako/lib/zlib/zstream.js")
 external class zstream {
-    var input: dynamic
+    var input: Uint8Array?
     var next_in: Number
     var avail_in: Number
     var total_in: Number
-    var output: dynamic
+    var output: Uint8Array?
     var next_out: Number
     var avail_out: Number
     var total_out: Number
