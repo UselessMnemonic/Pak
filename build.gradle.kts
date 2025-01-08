@@ -27,6 +27,7 @@ kotlin {
     js {
         useCommonJs()
         nodejs()
+        browser()
     }
     mingwX64()
     //macosX64()
