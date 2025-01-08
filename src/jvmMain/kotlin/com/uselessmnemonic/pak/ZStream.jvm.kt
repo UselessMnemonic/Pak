@@ -4,6 +4,9 @@ import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
+/**
+ * An implementation of ZStream which uses the Foreign Function and Memory API to bind ZLib.
+ */
 class JavaZStream : ZStream {
     private val zRef = ZStreamRef()
 
@@ -19,20 +22,32 @@ class JavaZStream : ZStream {
             ?: throw IllegalStateException("Unrecognized result value $result")
     }
 
-    override fun setInput(buffer: ByteArray, indices: IntRange) {
-        zRef.input = buffer.asMemorySegment(indices)
-    }
-
+    /**
+     * Provides input data to the compression engine from the given memory segment.
+     * Once set, the engine will continue to slice the same segment automatically until it is exhausted.
+     *
+     * @param buffer The input segment, with the desired buffer size already configured.
+     */
     fun setInput(buffer: MemorySegment) {
         zRef.input = buffer
     }
 
-    override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        zRef.output = buffer.asMemorySegment(indices)
+    override fun setInput(buffer: ByteArray, indices: IntRange) {
+        zRef.input = buffer.asMemorySegment(indices)
     }
 
+    /**
+     * Provides output space to the compression engine from the given memory segment.
+     * Once set, the engine will fill as much output as is permitted.
+     *
+     * @param buffer The output segment, with the desired buffer size already configured.
+     */
     fun setOutput(buffer: MemorySegment) {
         zRef.output = buffer
+    }
+
+    override fun setOutput(buffer: ByteArray, indices: IntRange) {
+        zRef.output = buffer.asMemorySegment(indices)
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {

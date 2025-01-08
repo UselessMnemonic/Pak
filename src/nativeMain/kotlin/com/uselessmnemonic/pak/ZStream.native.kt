@@ -2,6 +2,9 @@ package com.uselessmnemonic.pak
 
 import kotlinx.cinterop.*
 
+/**
+ * An implementation of ZStream which uses Kotlin/Native's ZLib bindings.
+ */
 @OptIn(ExperimentalForeignApi::class)
 class NativeZStream : ZStream {
 
@@ -38,20 +41,34 @@ class NativeZStream : ZStream {
         }
     }
 
-    override fun setInput(buffer: ByteArray, indices: IntRange) {
-        input = ByteArrayZBuffer(buffer, indices)
-    }
-
+    /**
+     * Provides input data to the compression engine from the given slice of the byte buffer. Once set, the engine will
+     * continue to slice the same input buffer automatically until it is exhausted.
+     *
+     * @param pointer A pointer to the start of the input buffer
+     * @param byteSize The number of bytes available to read
+     */
     fun setInput(pointer: CPointer<UByteVar>, byteSize: UInt) {
         input = NativeZBuffer(pointer, byteSize)
     }
 
-    override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        output = ByteArrayZBuffer(buffer, indices)
+    override fun setInput(buffer: ByteArray, indices: IntRange) {
+        input = ByteArrayZBuffer(buffer, indices)
     }
 
+    /**
+     * Provides output space to the compression engine from the given slice of the byte buffer. Once set, the engine
+     * will fill as much output as is permitted.
+     *
+     * @param pointer A pointer to the start of the output buffer
+     * @param byteSize The number of bytes available in the buffer
+     */
     fun setOutput(pointer: CPointer<UByteVar>, byteSize: UInt) {
         output = NativeZBuffer(pointer, byteSize)
+    }
+
+    override fun setOutput(buffer: ByteArray, indices: IntRange) {
+        output = ByteArrayZBuffer(buffer, indices)
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {

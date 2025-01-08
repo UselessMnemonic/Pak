@@ -1,6 +1,11 @@
 package com.uselessmnemonic.pak
 
-class JsZStream : ZStream {
+import org.khronos.webgl.Uint8Array
+
+/**
+ * An implementation of ZStream which wraps around [Pako](https://github.com/nodeca/pako)
+ */
+class PakoZStream : ZStream {
     private var zRef: pako.zlib.zstream? = pako.zlib.zstream()
 
     override val availIn get() = zRef!!.avail_in.toInt().toUInt()
@@ -15,36 +20,52 @@ class JsZStream : ZStream {
             ?: throw IllegalStateException("Unrecognized result value $result")
     }
 
-    override fun setInput(buffer: ByteArray, indices: IntRange) {
+    /**
+     * Provides input to the compression engine from the given typed array. Once set, the engine will continue to slice
+     * the same input buffer automatically until it is exhausted.
+     *
+     * @param buffer The input buffer
+     */
+    fun setInput(buffer: Uint8Array) {
         val zRef = zRef!!
-        if (indices.isEmpty()) {
+        zRef.next_in = 0
+        zRef.avail_in = buffer.byteLength
+        if (zRef.avail_in == 0) {
             zRef.input = null
-            zRef.next_in = 0
-            zRef.avail_in = 0
             return
         }
+        zRef.input = buffer
+    }
+
+    override fun setInput(buffer: ByteArray, indices: IntRange) {
         if (indices.first < 0 || indices.last >= buffer.size) {
             throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
         }
-        zRef.next_in = indices.first
-        zRef.avail_in = indices.last - indices.first + 1
-        zRef.input = buffer.asUInt8Array(indices)
+        setInput(buffer.asUInt8Array(indices))
+    }
+
+    /**
+     * Provides output space to the compression engine from the given typed array. Once set, the engine will fill as
+     * much output as is permitted.
+     *
+     * @param buffer The output buffer
+     */
+    fun setOutput(buffer: Uint8Array) {
+        val zRef = zRef!!
+        zRef.next_out = 0
+        zRef.avail_out = buffer.byteLength
+        if (zRef.avail_out == 0) {
+            zRef.output = null
+            return
+        }
+        zRef.output = buffer
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        val zRef = zRef!!
-        if (indices.isEmpty()) {
-            zRef.output = null
-            zRef.next_out = 0
-            zRef.avail_out = 0
-            return
-        }
         if (indices.first < 0 || indices.last >= buffer.size) {
             throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
         }
-        zRef.next_out = indices.first
-        zRef.avail_out = indices.last - indices.first + 1
-        zRef.output = buffer.asUInt8Array(indices)
+        setOutput(buffer.asUInt8Array(indices))
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
@@ -132,4 +153,4 @@ class JsZStream : ZStream {
     }
 }
 
-actual fun ZStream(): ZStream = JsZStream()
+actual fun ZStream(): ZStream = PakoZStream()

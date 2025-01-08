@@ -2,6 +2,9 @@ package com.uselessmnemonic.pak
 
 import kotlinx.cinterop.*
 
+/**
+ * A simple interface that represents a buffer source.
+ */
 @OptIn(ExperimentalForeignApi::class)
 internal interface ZBuffer {
     val byteSize: UInt

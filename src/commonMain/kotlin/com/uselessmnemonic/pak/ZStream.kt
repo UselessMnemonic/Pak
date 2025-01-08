@@ -46,9 +46,7 @@ interface ZStream : AutoCloseable {
 
     /**
      * Provides input to the compression engine from the given slice of the byte array. Once set, the engine will
-     * continue to slice the same input buffer automatically until it is filled.
-     *
-     * The compression engine assumes the buffer will not be mutated during operations that consume input.
+     * continue to slice the same input buffer automatically until it is exhausted.
      *
      * @param buffer The input buffer
      * @param indices The bounds of input data in the buffer
@@ -56,39 +54,13 @@ interface ZStream : AutoCloseable {
     fun setInput(buffer: ByteArray, indices: IntRange = buffer.indices)
 
     /**
-     * Provides input to the compression engine from the given slice of the unsigned byte array. Once set, the engine
-     * will continue to slice the same input buffer automatically until it is filled.
-     *
-     * The compression engine assumes the buffer will not be mutated during operations that consume input.
-     *
-     * @param buffer The input buffer
-     * @param indices The bounds of input data in the buffer
-     */
-    @OptIn(ExperimentalUnsignedTypes::class)
-    fun setInput(buffer: UByteArray, indices: IntRange = buffer.indices)
-
-    /**
      * Provides output space to the compression engine from the given slice of the byte array. Once set, the engine will
      * fill as much output as is permitted.
-     *
-     * The compression engine assumes the buffer will not be mutated during operations that produce output.
      *
      * @param buffer The output buffer
      * @param indices The bounds of output space in the buffer
      */
     fun setOutput(buffer: ByteArray, indices: IntRange = buffer.indices)
-
-    /**
-     * Provides output space to the compression engine from the given slice of the unsigned byte array. Once set, the
-     * engine will fill as much output as is permitted.
-     *
-     * The compression engine assumes the buffer will not be mutated during operations that produce output.
-     *
-     * @param buffer The output buffer
-     * @param indices The bounds of output space in the buffer
-     */
-    @OptIn(ExperimentalUnsignedTypes::class)
-    fun setOutput(buffer: UByteArray, indices: IntRange = buffer.indices)
 
     /**
      * Initializes the internal stream state for compression.
