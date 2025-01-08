@@ -19,4 +19,5 @@ hosts require their native `zlib` only. Depending on the host platform, a specif
 over the host implementation.
 
 ### Kotlin/JS
-Kotlin/JS is planned for the future.
+Kotlin/JS is supported with the excellent [`pako`](https://github.com/nodeca/pako) zlib implementation. This allows Pak
+to work in any JavaScript environment.
