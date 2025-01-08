@@ -26,9 +26,9 @@ class JsZStream : ZStream {
         if (indices.first < 0 || indices.last >= buffer.size) {
             throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
         }
-        zRef.input = buffer
         zRef.next_in = indices.first
         zRef.avail_in = indices.last - indices.first + 1
+        zRef.input = buffer.asUInt8Array(indices)
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
@@ -42,9 +42,9 @@ class JsZStream : ZStream {
         if (indices.first < 0 || indices.last >= buffer.size) {
             throw IllegalArgumentException("$indices exceeds array bounds (length ${buffer.size})")
         }
-        zRef.output = buffer
         zRef.next_out = indices.first
         zRef.avail_out = indices.last - indices.first + 1
+        zRef.output = buffer.asUInt8Array(indices)
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
@@ -63,7 +63,7 @@ class JsZStream : ZStream {
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
         return parseResult(
-            pako.zlib.deflateSetDictionary(zRef!!, dictionary.sliceArray(indices))
+            pako.zlib.deflateSetDictionary(zRef!!, dictionary.asUInt8Array(indices))
         )
     }
 
@@ -105,7 +105,7 @@ class JsZStream : ZStream {
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
         return parseResult(
-            pako.zlib.inflateSetDictionary(zRef!!, dictionary.sliceArray(indices))
+            pako.zlib.inflateSetDictionary(zRef!!, dictionary.asUInt8Array(indices))
         )
     }
 
