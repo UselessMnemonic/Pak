@@ -1,16 +1,15 @@
 package com.uselessmnemonic.pak
 
 /**
- * The base class for all zlib exceptions.
+ * The base class for all ZLib exceptions.
  *
- * zlib communicates errors via return codes, but some platforms elect to raise exceptions instead. ZException is the
- * base class by which platform exceptions will be captured and propagated.
+ * ZLib communicates errors via return codes, but since most error cases are exceptional it is preferred to encapsulate
+ * them in an exception.
  *
- * In cases where the target platform does not raise an exception, one will be synthesized and its data populated
- * from the state of the ZStream that raised it.
+ * @param error The [ZError] represented by this exception.
+ * @param message A message string supplied by the compression engine.
  */
 class ZException(
     val error: ZError,
-    message: String? = null,
-    cause: Throwable? = null
-) : Exception(message, cause)
+    message: String
+) : Exception(message)

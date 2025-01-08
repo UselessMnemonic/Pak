@@ -136,7 +136,9 @@ enum class ZError(val value: Int) {
 }
 
 /**
- * TODO
+ * Determines the compression level used in [ZStream.deflate] in conjunction with [ZCompressionStrategy]. There are
+ * three approaches for the compression levels 0, 1..3, and 4..9 respectively in increasing order of memory usage and
+ * aggression.
  */
 enum class ZCompressionLevel(val value: Int) {
     DefaultCompression(-1),
@@ -153,21 +155,35 @@ enum class ZCompressionLevel(val value: Int) {
 }
 
 /**
- * TODO
+ * Used to tune the compression algorithm, affecting the compression ratio but never the correctness of the compressed
+ * output (even if it is not set optimally for the given data).
  */
 enum class ZCompressionStrategy(val value: Int) {
+    /**
+     * Useful for generic data.
+     */
     DefaultStrategy(0),
-    Filtered(1),
-    HuffmanOnly(2),
-    RLE(3),
-    Fixed(4)
-}
 
-/**
- * TODO
- */
-enum class ZDataType(val value: Int) {
-    Binary(0),
-    Text(1),
-    Unknown(2)
+    /**
+     * Useful for data produced by some filter/predictor. Filtered data consists mostly of small values with a somewhat
+     * random distribution (e.g. PNG filters). This forces more Huffman coding and less string matching than default.
+     */
+    Filtered(1),
+
+    /**
+     * Useful for forcing Huffman encoding only.
+     */
+    HuffmanOnly(2),
+
+    /**
+     * Run-length encoding; Useful for limiting match distances to one. It is almost as fast as [HuffmanOnly], but
+     * should give better compression for PNG image data.
+     */
+    RLE(3),
+
+    /**
+     * Uses the default string matching, but prevents the use of dynamic Huffman codes, allowing for a simpler decoder
+     * for special applications.
+     */
+    Fixed(4)
 }
