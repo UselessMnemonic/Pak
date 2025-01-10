@@ -70,7 +70,7 @@ class PakoZStream : ZStream {
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
         return parseResult(
-            pako.zlib.deflateInit(zRef!!, level.value)
+            zRef!!.deflateInit(level.value)
         )
     }
 
@@ -84,7 +84,7 @@ class PakoZStream : ZStream {
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
         return parseResult(
-            pako.zlib.deflateSetDictionary(zRef!!, dictionary.asUInt8Array(indices))
+            zRef!!.deflateSetDictionary(dictionary.asUInt8Array(indices))
         )
     }
 
@@ -94,25 +94,25 @@ class PakoZStream : ZStream {
 
     override fun deflate(flush: ZFlush): ZResult {
         return parseResult(
-            pako.zlib.deflate(zRef!!, flush.value)
+            zRef!!.deflate(flush.value)
         )
     }
 
     override fun deflateReset(): ZResult {
         return parseResult(
-            pako.zlib.deflateReset(zRef!!)
+            zRef!!.deflateReset()
         )
     }
 
     override fun deflateEnd(): ZResult {
         return parseResult(
-            pako.zlib.deflateEnd(zRef!!)
+            zRef!!.deflateEnd()
         )
     }
 
     override fun inflateInit(): ZResult {
         return parseResult(
-            pako.zlib.inflateInit(zRef!!)
+            zRef!!.inflateInit()
         )
     }
 
@@ -126,25 +126,25 @@ class PakoZStream : ZStream {
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
         return parseResult(
-            pako.zlib.inflateSetDictionary(zRef!!, dictionary.asUInt8Array(indices))
+            zRef!!.inflateSetDictionary(dictionary.asUInt8Array(indices))
         )
     }
 
     override fun inflate(flush: ZFlush): ZResult {
         return parseResult(
-            pako.zlib.inflate(zRef!!, flush.value)
+            zRef!!.inflate(flush.value)
         )
     }
 
     override fun inflateReset(): ZResult {
         return parseResult(
-            pako.zlib.inflateReset(zRef!!)
+            zRef!!.inflateReset()
         )
     }
 
     override fun inflateEnd(): ZResult {
         return parseResult(
-            pako.zlib.inflateEnd(zRef!!)
+            zRef!!.inflateEnd()
         )
     }
 

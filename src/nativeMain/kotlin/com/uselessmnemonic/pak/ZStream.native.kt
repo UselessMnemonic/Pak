@@ -73,14 +73,14 @@ class NativeZStream : ZStream {
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
         return parseResult(
-            platform.zlib.deflateInit(zRef.ptr, level.value)
+            zRef.deflateInit(level.value)
         )
     }
 
     override fun deflateParams(level: ZCompressionLevel, strategy: ZCompressionStrategy): ZResult {
         return parseResult(
             pinningBuffers {
-                platform.zlib.deflateParams(zRef.ptr, level.value, strategy.value)
+                zRef.deflateParams(level.value, strategy.value)
             }
         )
     }
@@ -89,7 +89,7 @@ class NativeZStream : ZStream {
         return memScoped {
             val size = alloc<UIntVar>()
             val result = parseResult(
-                platform.zlib.deflateGetDictionary(zRef.ptr, null, size.ptr)
+                zRef.deflateGetDictionary(null, size.ptr)
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
@@ -108,7 +108,7 @@ class NativeZStream : ZStream {
             val size = alloc<UIntVar>()
             val result = parseResult(
                 dictionary.pinning { dictionaryPtr ->
-                    platform.zlib.deflateGetDictionary(zRef.ptr, dictionaryPtr?.reinterpret(), size.ptr)
+                    zRef.deflateGetDictionary(dictionaryPtr?.reinterpret(), size.ptr)
                 }
             )
             if (result != ZResult.Ok) {
@@ -127,7 +127,7 @@ class NativeZStream : ZStream {
         val dictionary = ByteArrayZBuffer(dictionary, indices)
         return parseResult(
             dictionary.pinning { dictionaryPtr ->
-                platform.zlib.deflateSetDictionary(zRef.ptr, dictionaryPtr?.reinterpret(), dictionary.byteSize)
+                zRef.deflateSetDictionary(dictionaryPtr?.reinterpret(), dictionary.byteSize)
             }
         )
     }
@@ -137,7 +137,7 @@ class NativeZStream : ZStream {
         val prevTotalOut = totalOut
         val result = parseResult(
             pinningBuffers {
-                platform.zlib.deflate(zRef.ptr, flush.value)
+                zRef.deflate(flush.value)
             }
         )
         val totalRead = totalIn - prevTotalIn
@@ -149,19 +149,19 @@ class NativeZStream : ZStream {
 
     override fun deflateReset(): ZResult {
         return parseResult(
-            platform.zlib.deflateReset(zRef.ptr)
+            zRef.deflateReset()
         )
     }
 
     override fun deflateEnd(): ZResult {
         return parseResult(
-            platform.zlib.deflateEnd(zRef.ptr)
+            zRef.deflateEnd()
         )
     }
 
     override fun inflateInit(): ZResult {
         return parseResult(
-            platform.zlib.inflateInit(zRef.ptr)
+            zRef.inflateInit()
         )
     }
 
@@ -169,7 +169,7 @@ class NativeZStream : ZStream {
         return memScoped {
             val size = alloc<UIntVar>()
             val result = parseResult(
-                platform.zlib.inflateGetDictionary(zRef.ptr, null, size.ptr)
+                zRef.inflateGetDictionary(null, size.ptr)
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
@@ -188,7 +188,7 @@ class NativeZStream : ZStream {
             val size = alloc<UIntVar>()
             val result = parseResult(
                 dictionary.pinning { dictionaryPtr ->
-                    platform.zlib.inflateGetDictionary(zRef.ptr, dictionaryPtr?.reinterpret(), size.ptr)
+                    zRef.inflateGetDictionary(dictionaryPtr?.reinterpret(), size.ptr)
                 }
             )
             if (result != ZResult.Ok) {
@@ -207,7 +207,7 @@ class NativeZStream : ZStream {
         val dictionary = ByteArrayZBuffer(dictionary, indices)
         return parseResult(
             dictionary.pinning { dictionaryPtr ->
-                platform.zlib.inflateSetDictionary(zRef.ptr, dictionaryPtr?.reinterpret(), dictionary.byteSize)
+                zRef.inflateSetDictionary(dictionaryPtr?.reinterpret(), dictionary.byteSize)
             }
         )
     }
@@ -217,7 +217,7 @@ class NativeZStream : ZStream {
         val prevTotalOut = totalOut
         val result = parseResult(
             pinningBuffers {
-                platform.zlib.inflate(zRef.ptr, flush.value)
+                zRef.inflate(flush.value)
             }
         )
         val totalRead = totalIn - prevTotalIn
@@ -229,13 +229,13 @@ class NativeZStream : ZStream {
 
     override fun inflateReset(): ZResult {
         return parseResult(
-            platform.zlib.inflateReset(zRef.ptr)
+            zRef.inflateReset()
         )
     }
 
     override fun inflateEnd(): ZResult {
         return parseResult(
-            platform.zlib.inflateEnd(zRef.ptr)
+            zRef.inflateEnd()
         )
     }
 
