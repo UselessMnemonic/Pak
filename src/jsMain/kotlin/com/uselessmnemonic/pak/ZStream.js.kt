@@ -92,7 +92,7 @@ class PakoZStream : ZStream {
         if (size == 0) {
             return IntRange.EMPTY
         }
-        return IntRange(indices.first, indices.first + size.toInt() - 1) // TODO what are the bounds of size?
+        return IntRange(indices.first, indices.first + size.toInt() - 1)
     }
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
@@ -149,7 +149,7 @@ class PakoZStream : ZStream {
         if (size == 0) {
             return IntRange.EMPTY
         }
-        return IntRange(indices.first, indices.first + size.toInt() - 1) // TODO what are the bounds of size?
+        return IntRange(indices.first, indices.first + size.toInt() - 1)
     }
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
