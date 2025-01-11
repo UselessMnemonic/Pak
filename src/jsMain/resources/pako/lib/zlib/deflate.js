@@ -1947,6 +1947,37 @@ const deflateEnd = (strm) => {
 
 
 /* =========================================================================
+ * Retrieves the compression dictionary into the given buffer, and returns
+ * a tuple of the result and the total written bytes
+ */
+const deflateGetDictionary = (strm, dictionary) => {
+
+  if (deflateStateCheck(strm)) {
+    return [Z_STREAM_ERROR, -1];
+  }
+
+  const s = strm.state;
+  let len = s.strstart + s.lookahead;
+  if (len > s.w_size) {
+    len = s.w_size;
+  }
+  if (!dictionary) {
+    return [Z_OK, len]
+  }
+
+  /* copy dictionary */
+  if (dictionary.byteLength < len) {
+    len = dictionary.byteLength
+  }
+  if (len) {
+    const window = s.window
+    dictionary.set(window.slice(s.strstart + s.lookahead - len, len))
+  }
+  return [Z_OK, len];
+}
+
+
+/* =========================================================================
  * Initializes the compression dictionary from the given byte
  * sequence without producing any compressed output.
  */
@@ -2027,6 +2058,59 @@ const deflateSetDictionary = (strm, dictionary) => {
 };
 
 
+/* =========================================================================
+ * Dynamically updates the deflate strategy, potentially
+ * producing new output as if by deflate() with Z_BLOCK
+ */
+const deflateParams = (strm, level, strategy) => {
+
+  if (deflateStateCheck(strm)) {
+    return Z_STREAM_ERROR;
+  }
+
+  const s = strm.state;
+
+//#ifdef FASTEST
+//  if (level != 0) level = 1;
+//#else
+  if (level == Z_DEFAULT_COMPRESSION) level = 6;
+//#endif
+  if (level < 0 || level > 9 || strategy < 0 || strategy > Z_FIXED) {
+    return Z_STREAM_ERROR;
+  }
+  const func = configuration_table[s.level].func;
+
+  if ((strategy != s.strategy || func != configuration_table[level].func) && s.last_flush != -2) {
+    /* Flush the last buffer: */
+    const err = deflate(strm, Z_BLOCK);
+    if (err == Z_STREAM_ERROR) {
+      return err;
+    }
+    if (strm.avail_in || (s.strstart - s.block_start) + s.lookahead) {
+      return Z_BUF_ERROR;
+    }
+  }
+  if (s.level != level) {
+    if (s.level == 0 && s.matches != 0) {
+      if (s.matches == 1) {
+        slide_hash(s);
+      } else {
+        /*** CLEAR_HASH(s); ***/
+        zero(s.head); // Fill with NIL (= 0);
+      }
+      s.matches = 0;
+    }
+    s.level = level;
+    s.max_lazy_match   = configuration_table[level].max_lazy;
+    s.good_match       = configuration_table[level].good_length;
+    s.nice_match       = configuration_table[level].nice_length;
+    s.max_chain_length = configuration_table[level].max_chain;
+  }
+  s.strategy = strategy;
+  return Z_OK;
+}
+
+
 module.exports.deflateInit = deflateInit;
 module.exports.deflateInit2 = deflateInit2;
 module.exports.deflateReset = deflateReset;
@@ -2034,14 +2118,14 @@ module.exports.deflateResetKeep = deflateResetKeep;
 module.exports.deflateSetHeader = deflateSetHeader;
 module.exports.deflate = deflate;
 module.exports.deflateEnd = deflateEnd;
+module.exports.deflateGetDictionary = deflateGetDictionary;
 module.exports.deflateSetDictionary = deflateSetDictionary;
 module.exports.deflateInfo = 'pako deflate (from Nodeca project)';
+module.exports.deflateParams = deflateParams;
 
 /* Not implemented
 module.exports.deflateBound = deflateBound;
 module.exports.deflateCopy = deflateCopy;
-module.exports.deflateGetDictionary = deflateGetDictionary;
-module.exports.deflateParams = deflateParams;
 module.exports.deflatePending = deflatePending;
 module.exports.deflatePrime = deflatePrime;
 module.exports.deflateTune = deflateTune;
