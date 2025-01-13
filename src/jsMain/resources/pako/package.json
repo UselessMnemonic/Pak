@@ -1,0 +1,20 @@
+{
+  "name": "pako",
+  "version": "2.1.0",
+  "contributors": [
+    "Andrei Tuputcyn (https://github.com/andr83)",
+    "Vitaly Puzrin (https://github.com/puzrin)",
+    "Friedel Ziegelmayer (https://github.com/dignifiedquire)",
+    "Kirill Efimov (https://github.com/Kirill89)",
+    "Jean-loup Gailly",
+    "Mark Adler"
+  ],
+  "files": [
+    "lib/"
+  ],
+  "license": "(MIT AND Zlib)",
+  "exports": {
+    "./lib/zlib/*": "./lib/zlib/*"
+  },
+  "dependencies": {}
+}
