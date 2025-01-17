@@ -1,16 +1,19 @@
-use libloading::Library;
-use std::ffi::{c_ulong, c_void, c_char, OsString};
-use std::env;
+use std::ffi::{c_char, c_ulong, c_void, OsString};
 use std::alloc::{alloc_zeroed, Layout};
-use std::ops::Deref;
+use std::marker::PhantomData;
+use std::env;
+use std::sync::LazyLock;
+use libloading::Library;
 
 /** Bindings for ZLib */
 
-type ZAllocFn = unsafe extern "C" fn(opaque: *c_void, items: u32, size: u32) -> *const c_void;
-type ZFreeFn = unsafe extern "C" fn(opaque: *c_void, address: *c_void) -> c_void;
+type ZAllocFn = unsafe extern "C" fn(opaque: *mut c_void, items: u32, size: u32) -> *const c_void;
+type ZFreeFn = unsafe extern "C" fn(opaque: *mut c_void, address: *mut c_void) -> c_void;
+type ZLibVersionFn = unsafe extern "C" fn() -> *const c_char;
 
 #[repr(C)]
-pub struct ZStreamImpl {
+#[derive(Debug)]
+pub struct ZStream<'s> {
     pub next_in: *const u8,
     pub avail_in: u32,
     pub total_in: c_ulong,
@@ -29,175 +32,171 @@ pub struct ZStreamImpl {
     pub data_type: u32,
     pub adler: c_ulong,
     pub reserved: c_ulong,
+    marker: PhantomData<&'s ()>
 }
 
-#[repr(transparent)]
+type ZDeflateInitFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, version: *const c_char, size: u32) -> i32;
+type ZDeflateParamsFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, strategy: i32) -> i32;
+type ZDeflateGetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *mut u8, size: *mut u32) -> i32;
+type ZDeflateSetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *const u8, size: u32) -> i32;
+type ZDeflateFn = unsafe extern "C" fn(stream: *mut ZStream, flush: i32) -> i32;
+type ZDeflateResetFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
+type ZDeflateEndFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
+
+type ZInflateInitFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, version: *const c_char, size: u32) -> i32;
+type ZInflateParamsFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, strategy: i32) -> i32;
+type ZInflateGetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *mut u8, size: *mut u32) -> i32;
+type ZInflateSetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *const u8, size: u32) -> i32;
+type ZInflateFn = unsafe extern "C" fn(stream: *mut ZStream, flush: i32) -> i32;
+type ZInflateResetFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
+type ZInflateEndFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
+
 #[derive(Debug)]
-pub struct ZStream {
-    internal: *mut ZStreamImpl
+struct ZLib<'z> {
+    library: Library,
+    zlib_version: *const c_char,
+
+    deflate_init: ZDeflateInitFn,
+    deflate_params: ZDeflateParamsFn,
+    deflate_get_dictionary: ZDeflateGetDictionaryFn,
+    deflate_set_dictionary: ZDeflateSetDictionaryFn,
+    deflate: ZDeflateFn,
+    deflate_reset: ZDeflateResetFn,
+    deflate_end: ZDeflateEndFn,
+
+    inflate_init: ZInflateInitFn,
+    inflate_get_dictionary: ZInflateGetDictionaryFn,
+    inflate_set_dictionary: ZInflateSetDictionaryFn,
+    inflate: ZInflateFn,
+    inflate_reset: ZInflateResetFn,
+    inflate_end: ZInflateEndFn,
+
+    _owns_library: PhantomData<&'z Library>
 }
 
-type ZLibVersionFn = unsafe extern "C" fn() -> *const c_char;
+impl<'z> ZLib<'z> {
+    fn new() -> ZLib<'z> {
+        let path = match env::var("ZLIB_LIBRARY") {
+            Ok(path) => OsString::from(path),
+            Err(cause) => match cause {
+                #[cfg(target_os = "windows")]
+                env::VarError::NotPresent => OsString::from("zlib1"),
+                #[cfg(not(target_os = "windows"))]
+                env::VarError::NotPresent => OsString::from("libz"),
+                env::VarError::NotUnicode(it) => it
+            }
+        };
+        unsafe {
+            let library = Library::new(path).unwrap();
+            let zlib_version = library.get::<extern "C" fn () -> *const c_char>(b"zlibVersion\0").unwrap()();
 
-type ZDeflateInitFn = unsafe extern "C" fn(stream: ZStream, level: i32, version: *const u8, size: u32) -> i32;
-type ZDeflateParamsFn = unsafe extern "C" fn(stream: ZStream, level: i32, strategy: i32) -> i32;
-type ZDeflateGetDictionaryFn = unsafe extern "C" fn(stream: ZStream, dictionary: *mut u8, size: *mut u32) -> i32;
-type ZDeflateSetDictionaryFn = unsafe extern "C" fn(stream: ZStream, dictionary: *const u8, size: u32) -> i32;
-type ZDeflateFn = unsafe extern "C" fn(stream: ZStream, flush: i32) -> i32;
-type ZDeflateResetFn = unsafe extern "C" fn(stream: ZStream) -> i32;
-type ZDeflateEndFn = unsafe extern "C" fn(stream: ZStream) -> i32;
+            let deflate_init = library.get::<ZDeflateInitFn>(b"_deflateInit\0").unwrap().deref().to_owned();
+            let deflate_params = library.get::<ZDeflateParamsFn>(b"deflateParams\0").unwrap().deref().to_owned();
+            let deflate_get_dictionary = library.get::<ZDeflateGetDictionaryFn>(b"deflateGetDictionary\0").unwrap().deref().to_owned();
+            let deflate_set_dictionary = library.get::<ZDeflateSetDictionaryFn>(b"deflateSetDictionary\0").unwrap().deref().to_owned();
+            let deflate = library.get::<ZDeflateFn>(b"deflate\0").unwrap().deref().to_owned();
+            let deflate_reset = library.get::<ZDeflateResetFn>(b"deflateReset\0").unwrap().deref().to_owned();
+            let deflate_end = library.get::<ZDeflateEndFn>(b"deflateEnd\0").unwrap().deref().to_owned();
+    
+            let inflate_init = library.get::<ZInflateInitFn>(b"_inflateInit\0").unwrap().deref().to_owned();
+            let inflate_get_dictionary = library.get::<ZInflateGetDictionaryFn>(b"inflateGetDictionary\0").unwrap().deref().to_owned();
+            let inflate_set_dictionary = library.get::<ZInflateSetDictionaryFn>(b"inflateSetDictionary\0").unwrap().deref().to_owned();
+            let inflate = library.get::<ZInflateFn>(b"inflate\0").unwrap().deref().to_owned();
+            let inflate_reset = library.get::<ZInflateResetFn>(b"inflateReset\0").unwrap().deref().to_owned();
+            let inflate_end = library.get::<ZInflateEndFn>(b"inflateEnd\0").unwrap().deref().to_owned();
 
-type ZInflateInitFn = unsafe extern "C" fn(stream: ZStream, level: i32, version: *const u8, size: u32) -> i32;
-type ZInflateParamsFn = unsafe extern "C" fn(stream: ZStream, level: i32, strategy: i32) -> i32;
-type ZInflateGetDictionaryFn = unsafe extern "C" fn(stream: ZStream, dictionary: *mut u8, size: *mut u32) -> i32;
-type ZInflateSetDictionaryFn = unsafe extern "C" fn(stream: ZStream, dictionary: *const u8, size: u32) -> i32;
-type ZInflateFn = unsafe extern "C" fn(stream: ZStream, flush: i32) -> i32;
-type ZInflateResetFn = unsafe extern "C" fn(stream: ZStream) -> i32;
-type ZInflateEndFn = unsafe extern "C" fn(stream: ZStream) -> i32;
-
-static ZLIB_LIBRARY: OsString = match env::var("ZLIB_LIBRARY") {
-    Ok(path) => OsString::from(path),
-    Err(cause) => match(cause) {
-        env::VarError::NotPresent => {
-            #[cfg(target_os = "windows")]
-            return OsString::from("zlib1");
-            #[cfg(not(target_os = "windows"))]
-            return OsString::from("libz")
+            ZLib {
+                library,
+                zlib_version,
+                deflate_init,
+                deflate_params,
+                deflate_get_dictionary,
+                deflate_set_dictionary,
+                deflate,
+                deflate_reset,
+                deflate_end,
+                inflate_init,
+                inflate_get_dictionary,
+                inflate_set_dictionary,
+                inflate,
+                inflate_reset,
+                inflate_end,
+                _owns_library: PhantomData {}
+            }
         }
-        env::VarError::NotUnicode(it) => it
     }
-};
+}
 
-static ZLIB: Library = unsafe { Library::new(ZLIB_LIBRARY).unwrap() };
-static ZLIB_VERSION: *const c_char = unsafe { ZLIB.get::<ZLibVersionFn>(b"zlibVersion\0").unwrap()() };
+unsafe impl<'z> Sync for ZLib<'z> {}
+
+unsafe impl<'z> Send for ZLib<'z> {}
+
+static ZLIB: LazyLock<ZLib<'static>> = LazyLock::new(ZLib::new);
 static Z_STREAM_LAYOUT: Layout = Layout::new::<ZStream>();
 
-static Z_DEFLATE_INIT: ZDeflateInitFn = unsafe { ZLIB.get(b"_deflateInit\0").unwrap() };
-static Z_DEFLATE_PARAMS: ZDeflateParamsFn = unsafe { ZLIB.get(b"deflateParams\0").unwrap() };
-static Z_DEFLATE_GET_DICTIONARY: ZDeflateGetDictionaryFn = unsafe { ZLIB.get(b"deflateGetDictionary\0").unwrap() };
-static Z_DEFLATE_SET_DICTIONARY: ZDeflateSetDictionaryFn = unsafe { ZLIB.get(b"deflateSetDictionary\0").unwrap() };
-static Z_DEFLATE: ZDeflateFn = unsafe { ZLIB.get(b"deflate\0").unwrap() };
-static Z_DEFLATE_RESET: ZDeflateResetFn = unsafe { ZLIB.get(b"deflateReset\0").unwrap() };
-static Z_DEFLATE_END: ZDeflateEndFn = unsafe { ZLIB.get(b"deflateEnd\0").unwrap() };
-
-static Z_INFLATE_INIT: ZInflateInitFn = unsafe { ZLIB.get(b"_inflateInit\0").unwrap() };
-static Z_INFLATE_PARAMS: ZInflateParamsFn = unsafe { ZLIB.get(b"inflateParams\0").unwrap() };
-static Z_INFLATE_GET_DICTIONARY: ZInflateGetDictionaryFn = unsafe { ZLIB.get(b"inflateGetDictionary\0").unwrap() };
-static Z_INFLATE_SET_DICTIONARY: ZInflateSetDictionaryFn = unsafe { ZLIB.get(b"inflateSetDictionary\0").unwrap() };
-static Z_INFLATE: ZInflateFn = unsafe { ZLIB.get(b"inflate\0").unwrap() };
-static Z_INFLATE_RESET: ZInflateResetFn = unsafe { ZLIB.get(b"inflateReset\0").unwrap() };
-static Z_INFLATE_END: ZInflateEndFn = unsafe { ZLIB.get(b"inflateEnd\0").unwrap() };
-
-impl Into<u64> for ZStream {
-    pub fn into(self) -> u64 {
-        unsafe {
-            self.internal as u64
-        }
-    }
-}
-
-impl From<u64> for ZStream {
-    pub fn from(value: u64) -> Self {
-        unsafe {
-            ZStream {
-                internal: value as *mut ZStreamImpl
-            }
-        }
-    }
-}
-
-impl Deref for ZStream {
-    type Target = *mut ZStreamImpl;
-
-    fn deref(self) -> Self::Target {
-        self.internal
-    }
-}
-
-impl ZStream {
-    pub fn new() -> Self {
-        unsafe {
-            Self {
-                internal: alloc_zeroed(Z_STREAM_LAYOUT) as *mut ZStream
-            }
-        }
+impl<'s> ZStream<'s> {
+    pub unsafe fn new() -> &'s mut Self {
+        let ptr = alloc_zeroed(Z_STREAM_LAYOUT) as *mut ZStream;
+        ptr.as_mut().unwrap()
     }
 
-    pub fn deflate_init(self, level: i32) -> i32 {
-        unsafe {
-            Z_DEFLATE_INIT(self, level, ZLIB_VERSION, size_of::<ZStreamImpl>())
-        }
+    pub unsafe fn from_ref(value: u64) -> &'s mut Self {
+        (value as *mut ZStream).as_mut().unwrap()
     }
 
-    pub fn deflate_params(self, level: i32, strategy: i32) -> i32 {
-        unsafe {
-            Z_DEFLATE_PARAMS(self, level, strategy)
-        }
+    pub unsafe fn to_ref(&mut self) -> u64 {
+        self as *mut _ as usize as u64
     }
 
-    pub fn deflate_get_dictionary(self, dictionary: *const u8, size: *mut u32) -> i32 {
-        unsafe {
-            Z_DEFLATE_GET_DICTIONARY(self, dictionary, size)
-        }
+    pub unsafe fn deflate_init(&mut self, level: i32) -> i32 {
+        (ZLIB.deflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
     }
 
-    pub fn deflate_set_dictionary(self, dictionary: *const u8, size: u32) -> i32 {
-        unsafe {
-            Z_DEFLATE_SET_DICTIONARY(self, dictionary, size)
-        }
+    pub unsafe fn deflate_params(&mut self, level: i32, strategy: i32) -> i32 {
+        (ZLIB.deflate_params)(self, level, strategy)
     }
 
-    pub fn deflate(self, flush: i32) -> i32 {
-        unsafe {
-            Z_DEFLATE(self, flush)
-        }
+    pub unsafe fn deflate_get_dictionary(&mut self, dictionary: *mut u8, size: *mut u32) -> i32 {
+        (ZLIB.deflate_get_dictionary)(self, dictionary, size)
     }
 
-    pub fn deflate_reset(self) -> i32 {
-        unsafe {
-            Z_DEFLATE_RESET(self)
-        }
+    pub unsafe fn deflate_set_dictionary(&mut self, dictionary: *const u8, size: u32) -> i32 {
+        (ZLIB.deflate_set_dictionary)(self, dictionary, size)
     }
 
-    pub fn deflate_end(self) -> i32 {
-        unsafe {
-            Z_DEFLATE_END(self)
-        }
+    pub unsafe fn deflate(&mut self, flush: i32) -> i32 {
+        (ZLIB.deflate)(self, flush)
     }
 
-    pub fn inflate_init(self, level: i32) -> i32 {
-        unsafe {
-            Z_INFLATE_INIT(self, level, ZLIB_VERSION, size_of::<ZStreamImpl>())
-        }
+    pub unsafe fn deflate_reset(&mut self) -> i32 {
+        (ZLIB.deflate_reset)(self)
     }
 
-    pub fn inflate_get_dictionary(self, dictionary: *const u8, size: *mut u32) -> i32 {
-        unsafe {
-            Z_INFLATE_GET_DICTIONARY(self, dictionary, size)
-        }
+    pub unsafe fn deflate_end(&mut self) -> i32 {
+        (ZLIB.deflate_end)(self)
     }
 
-    pub fn inflate_set_dictionary(self, dictionary: *const u8, size: u32) -> i32 {
-        unsafe {
-            Z_INFLATE_SET_DICTIONARY(self, dictionary, size)
-        }
+    pub unsafe fn inflate_init(&mut self, level: i32) -> i32 {
+        (ZLIB.inflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
     }
 
-    pub fn inflate(self, flush: i32) -> i32 {
-        unsafe {
-            Z_INFLATE(self, flush)
-        }
+    pub unsafe fn inflate_get_dictionary(&mut self, dictionary: *mut u8, size: *mut u32) -> i32 {
+        (ZLIB.inflate_get_dictionary)(self, dictionary, size)
     }
 
-    pub fn inflate_reset(self) -> i32 {
-        unsafe {
-            Z_INFLATE_RESET(self)
-        }
+    pub unsafe fn inflate_set_dictionary(&mut self, dictionary: *const u8, size: u32) -> i32 {
+        (ZLIB.inflate_set_dictionary)(self, dictionary, size)
     }
 
-    pub fn inflate_end(self) -> i32 {
-        unsafe {
-            Z_INFLATE_END(self)
-        }
+    pub unsafe fn inflate(&mut self, flush: i32) -> i32 {
+        (ZLIB.inflate)(self, flush)
+    }
+
+    pub unsafe fn inflate_reset(&mut self) -> i32 {
+        (ZLIB.inflate_reset)(self)
+    }
+
+    pub unsafe fn inflate_end(&mut self) -> i32 {
+        (ZLIB.inflate_end)(self)
     }
 }
