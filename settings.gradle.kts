@@ -3,3 +3,5 @@ plugins {
 }
 rootProject.name = "Pak"
 include("pakext")
+include("pak-java11")
+include("pak-java22")

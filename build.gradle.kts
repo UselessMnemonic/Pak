@@ -20,7 +20,7 @@ kotlin {
     jvm {
         withJava()
         compilerOptions {
-            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_9
             moduleName = "com.uselessmnemonic.pak"
         }
     }
