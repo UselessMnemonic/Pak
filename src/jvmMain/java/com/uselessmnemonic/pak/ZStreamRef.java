@@ -1,6 +1,8 @@
 package com.uselessmnemonic.pak;
 
-import java.lang.foreign.*;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 
 /**
  * Bindings for pak-rs in FFM mode.
