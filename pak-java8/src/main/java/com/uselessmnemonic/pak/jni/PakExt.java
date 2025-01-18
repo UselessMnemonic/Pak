@@ -9,9 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-final class PakExt {
+final class PakRs {
 
-    private PakExt() {}
+    private PakRs() {}
 
     /* Management functions */
 
@@ -54,13 +54,13 @@ final class PakExt {
         String libName;
         String libExt;
         if (osName.startsWith("Windows")) {
-            libName = "pakext";
+            libName = "pak";
             libExt = ".dll";
         } else if (osName.startsWith("Mac") || osName.contains("Darwin")) {
-            libName = "libpakext";
+            libName = "libpak";
             libExt = ".dylib";
         } else {
-            libName = "libpakext";
+            libName = "libpak";
             libExt = ".so";
         }
 

@@ -7,11 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Bindings for pakext in FFM mode.
+ * Bindings for pak-rs in FFM mode.
  */
-final class PakExt {
+final class PakRs {
 
-    private PakExt() {}
+    private PakRs() {}
 
     private static final Linker linker = Linker.nativeLinker();
     private static final SymbolLookup lookup;
@@ -30,13 +30,13 @@ final class PakExt {
         String libName;
         String libExt;
         if (osName.startsWith("Windows")) {
-            libName = "pakext";
+            libName = "pak";
             libExt = ".dll";
         } else if (osName.startsWith("Mac") || osName.contains("Darwin")) {
-            libName = "libpakext";
+            libName = "libpak";
             libExt = ".dylib";
         } else {
-            libName = "libpakext";
+            libName = "libpak";
             libExt = ".so";
         }
 

@@ -71,7 +71,7 @@ tasks.named<Test>("jvmTest") {
 }
 
 tasks.named<ProcessResources>("jvmProcessResources") {
-    val zExtBuildAll = tasks.getByPath(":pakext:buildAll")
+    val zExtBuildAll = tasks.getByPath(":pak-rs:buildAll")
     from(zExtBuildAll.outputs.files) {
         eachFile {
             val target = file.parentFile.parentFile.name.split('-')[0]

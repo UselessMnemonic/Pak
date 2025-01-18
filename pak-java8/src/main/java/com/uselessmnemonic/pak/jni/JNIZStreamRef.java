@@ -1,11 +1,11 @@
 package com.uselessmnemonic.pak.jni;
 
 /**
- * Bindings for pakext in JNI mode.
+ * Bindings for pak-rs in JNI mode.
  */
 public final class JNIZStreamRef implements AutoCloseable {
 
-    private final long stream = PakExt.newStream();
+    private final long stream = PakRs.newStream();
     private byte[] input = null;
     private byte[] output = null;
 
@@ -17,7 +17,7 @@ public final class JNIZStreamRef implements AutoCloseable {
     public void setInput(byte[] input) {
         this.input = input;
         if (input == null) return;
-        PakExt.setInput(stream, 0, input.length);
+        PakRs.setInput(stream, 0, input.length);
     }
 
     public void setInput(byte[] input, int offset, int length) {
@@ -37,13 +37,13 @@ public final class JNIZStreamRef implements AutoCloseable {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
         this.input = input;
-        PakExt.setInput(stream, offset, length);
+        PakRs.setInput(stream, offset, length);
     }
 
     public void setOutput(byte[] output) {
         this.output = output;
         if (output == null) return;
-        PakExt.setOutput(stream, 0, input.length);
+        PakRs.setOutput(stream, 0, input.length);
     }
 
     public void setOutput(byte[] output, int offset, int length) {
@@ -63,7 +63,7 @@ public final class JNIZStreamRef implements AutoCloseable {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
         this.output = output;
-        PakExt.setOutput(stream, offset, length);
+        PakRs.setOutput(stream, offset, length);
     }
 
     public long getTotalIn() {
@@ -75,7 +75,7 @@ public final class JNIZStreamRef implements AutoCloseable {
     }
 
     public String getMsg() {
-        return PakExt.getMsg(stream);
+        return PakRs.getMsg(stream);
     }
 
     public long getAdler() {
@@ -83,15 +83,15 @@ public final class JNIZStreamRef implements AutoCloseable {
     }
 
     public int deflateInit(int level) throws Throwable {
-        return PakExt.deflateInit(stream, level);
+        return PakRs.deflateInit(stream, level);
     }
 
     public int deflateParams(int level, int strategy) {
-        return PakExt.deflateParams(stream, input, output, level, strategy);
+        return PakRs.deflateParams(stream, input, output, level, strategy);
     }
 
     public int deflateGetDictionary(byte[] dictionary, int[] size) {
-        return PakExt.deflateGetDictionary(stream, dictionary, size);
+        return PakRs.deflateGetDictionary(stream, dictionary, size);
     }
 
     public int deflateSetDictionary(byte[] dictionary, int offset, int length) {
@@ -106,27 +106,27 @@ public final class JNIZStreamRef implements AutoCloseable {
         if (offset + length > dictionary.length) {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
-        return PakExt.deflateSetDictionary(stream, dictionary, offset, length);
+        return PakRs.deflateSetDictionary(stream, dictionary, offset, length);
     }
 
     public int deflate(int flush) {
-        return PakExt.deflate(stream, input, output, flush);
+        return PakRs.deflate(stream, input, output, flush);
     }
 
     public int deflateReset() {
-        return PakExt.deflateReset(stream);
+        return PakRs.deflateReset(stream);
     }
 
     public int deflateEnd() {
-        return PakExt.deflateEnd(stream);
+        return PakRs.deflateEnd(stream);
     }
 
     public int inflateInit() {
-        return PakExt.inflateInit(stream);
+        return PakRs.inflateInit(stream);
     }
 
     public int inflateGetDictionary(byte[] dictionary, int[] size) {
-        return PakExt.deflateGetDictionary(stream, dictionary, size);
+        return PakRs.deflateGetDictionary(stream, dictionary, size);
     }
 
     public int inflateSetDictionary(byte[] dictionary, int offset, int length) {
@@ -141,19 +141,19 @@ public final class JNIZStreamRef implements AutoCloseable {
         if (offset + length > dictionary.length) {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
-        return PakExt.deflateSetDictionary(stream, dictionary, offset, length);
+        return PakRs.deflateSetDictionary(stream, dictionary, offset, length);
     }
 
     public int inflate(int flush) {
-        return PakExt.inflate(stream, input, output, flush);
+        return PakRs.inflate(stream, input, output, flush);
     }
 
     public int inflateReset() {
-        return PakExt.inflateReset(stream);
+        return PakRs.inflateReset(stream);
     }
 
     public int inflateEnd() {
-        return PakExt.inflateEnd(stream);
+        return PakRs.inflateEnd(stream);
     }
 
     @Override
@@ -164,7 +164,7 @@ public final class JNIZStreamRef implements AutoCloseable {
         } catch (Throwable t) {
             throw new RuntimeException(t);
         } finally {
-            PakExt.deleteStream(stream);
+            PakRs.deleteStream(stream);
         }
     }
 }

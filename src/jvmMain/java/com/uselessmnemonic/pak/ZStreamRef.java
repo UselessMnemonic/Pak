@@ -3,12 +3,12 @@ package com.uselessmnemonic.pak;
 import java.lang.foreign.*;
 
 /**
- * Bindings for pakext in FFM mode.
+ * Bindings for pak-rs in FFM mode.
  */
 public final class ZStreamRef implements AutoCloseable {
 
     private final Arena arena = Arena.ofShared();
-    private final MemorySegment stream = Arena.global().allocate(PakExt.streamLayout);
+    private final MemorySegment stream = Arena.global().allocate(PakRs.streamLayout);
     private MemorySegment input = MemorySegment.NULL;
     private MemorySegment output = MemorySegment.NULL;
 
@@ -72,20 +72,20 @@ public final class ZStreamRef implements AutoCloseable {
 
     public long getTotalIn() {
         if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.totalInOffset));
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakRs.totalInOffset));
         }
-        return stream.get(ValueLayout.JAVA_LONG, PakExt.totalInOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakRs.totalInOffset);
     }
 
     public long getTotalOut() {
         if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.totalOutOffset));
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakRs.totalOutOffset));
         }
-        return stream.get(ValueLayout.JAVA_LONG, PakExt.totalOutOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakRs.totalOutOffset);
     }
 
     public String getMsg() throws Throwable {
-        var segment = stream.get(ValueLayout.ADDRESS, PakExt.msgOffset).asReadOnly();
+        var segment = stream.get(ValueLayout.ADDRESS, PakRs.msgOffset).asReadOnly();
         if (segment.address() == 0) {
             return null;
         }
@@ -94,7 +94,7 @@ public final class ZStreamRef implements AutoCloseable {
     }
 
     public MemorySegment getMsgSegment() throws Throwable {
-        var segment = stream.get(ValueLayout.ADDRESS, PakExt.msgOffset).asReadOnly();
+        var segment = stream.get(ValueLayout.ADDRESS, PakRs.msgOffset).asReadOnly();
         if (segment.address() == 0) {
             return MemorySegment.NULL;
         }
@@ -104,22 +104,22 @@ public final class ZStreamRef implements AutoCloseable {
 
     public long getAdler() {
         if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.adlerOffset));
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakRs.adlerOffset));
         }
-        return stream.get(ValueLayout.JAVA_LONG, PakExt.adlerOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakRs.adlerOffset);
     }
 
     public int deflateInit(int level) throws Throwable {
-        return (int) PakExt.deflateInit.invokeExact(stream, level);
+        return (int) PakRs.deflateInit.invokeExact(stream, level);
     }
 
     public int deflateParams(int level, int strategy) throws Throwable {
-        return (int) PakExt.deflateParamsCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), level, strategy);
+        return (int) PakRs.deflateParamsCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), level, strategy);
     }
 
     public int deflateGetDictionary(byte[] dictionary, int[] size) throws Throwable {
         var sizeSegment = MemorySegment.ofArray(size);
-        return (int) PakExt.deflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
+        return (int) PakRs.deflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
     }
 
     public int deflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
@@ -129,12 +129,12 @@ public final class ZStreamRef implements AutoCloseable {
             throw new IllegalArgumentException(message);
         }
         size = size.asSlice(0, 4);
-        return (int) PakExt.deflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
+        return (int) PakRs.deflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
     }
 
     public int deflateSetDictionary(byte[] dictionary, int offset, int length) throws Throwable {
         var dictionarySegment = MemorySegment.ofArray(dictionary).asSlice(offset, length);
-        return (int) PakExt.deflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
+        return (int) PakRs.deflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
     }
 
     public int deflateSetDictionary(MemorySegment dictionary) throws Throwable {
@@ -143,13 +143,13 @@ public final class ZStreamRef implements AutoCloseable {
             var message = String.format("Buffer is too large to process (%d bytes)", byteSize);
             throw new IllegalArgumentException(message);
         }
-        return (int) PakExt.deflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
+        return (int) PakRs.deflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
     }
 
     public int deflate(int flush) throws Throwable {
         var prevTotalIn = getTotalIn();
         var prevTotalOut = getTotalOut();
-        var result = (int) PakExt.deflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var result = (int) PakRs.deflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
         var totalRead = getTotalIn() - prevTotalIn;
         var totalWrite = getTotalOut() - prevTotalOut;
         input = input.asSlice(totalRead);
@@ -158,20 +158,20 @@ public final class ZStreamRef implements AutoCloseable {
     }
 
     public int deflateReset() throws Throwable {
-        return (int) PakExt.deflateReset.invokeExact(stream);
+        return (int) PakRs.deflateReset.invokeExact(stream);
     }
 
     public int deflateEnd() throws Throwable {
-        return (int) PakExt.deflateEnd.invokeExact(stream);
+        return (int) PakRs.deflateEnd.invokeExact(stream);
     }
 
     public int inflateInit() throws Throwable {
-        return (int) PakExt.inflateInit.invokeExact(stream);
+        return (int) PakRs.inflateInit.invokeExact(stream);
     }
 
     public int inflateGetDictionary(byte[] dictionary, int[] size) throws Throwable {
         var sizeSegment = MemorySegment.ofArray(size);
-        return (int) PakExt.inflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
+        return (int) PakRs.inflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
     }
 
     public int inflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
@@ -182,12 +182,12 @@ public final class ZStreamRef implements AutoCloseable {
         }
         size = size.asSlice(0, 4);
         size.set(ValueLayout.JAVA_INT, 0, (int) byteSize);
-        return (int) PakExt.inflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
+        return (int) PakRs.inflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
     }
 
     public int inflateSetDictionary(byte[] dictionary, int offset, int length) throws Throwable {
         var dictionarySegment = MemorySegment.ofArray(dictionary).asSlice(offset, length);
-        return (int) PakExt.inflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
+        return (int) PakRs.inflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
     }
 
     public int inflateSetDictionary(MemorySegment dictionary) throws Throwable {
@@ -196,13 +196,13 @@ public final class ZStreamRef implements AutoCloseable {
             var message = String.format("Buffer is too large to process (%d bytes)", byteSize);
             throw new IllegalArgumentException(message);
         }
-        return (int) PakExt.inflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
+        return (int) PakRs.inflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
     }
 
     public int inflate(int flush) throws Throwable {
         var prevTotalIn = getTotalIn();
         var prevTotalOut = getTotalOut();
-        var result = (int) PakExt.inflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var result = (int) PakRs.inflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
         var totalRead = getTotalIn() - prevTotalIn;
         var totalWrite = getTotalOut() - prevTotalOut;
         input = input.asSlice(totalRead);
@@ -211,11 +211,11 @@ public final class ZStreamRef implements AutoCloseable {
     }
 
     public int inflateReset() throws Throwable {
-        return (int) PakExt.inflateReset.invokeExact(stream);
+        return (int) PakRs.inflateReset.invokeExact(stream);
     }
 
     public int inflateEnd() throws Throwable {
-        return (int) PakExt.inflateEnd.invokeExact(stream);
+        return (int) PakRs.inflateEnd.invokeExact(stream);
     }
 
     @Override

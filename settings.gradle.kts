@@ -4,4 +4,4 @@ plugins {
 
 rootProject.name = "Pak"
 
-include("pakext")
+include("pak-rs")
