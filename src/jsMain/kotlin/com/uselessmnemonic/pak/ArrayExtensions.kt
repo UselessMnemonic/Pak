@@ -1,7 +1,7 @@
 package com.uselessmnemonic.pak
 
-import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.Int8Array
+import org.khronos.webgl.Uint8Array
 
 val ByteArray.buffer get() = unsafeCast<Int8Array>().buffer
 

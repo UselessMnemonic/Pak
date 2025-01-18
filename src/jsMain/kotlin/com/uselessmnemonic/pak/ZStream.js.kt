@@ -75,11 +75,24 @@ class PakoZStream : ZStream {
     }
 
     override fun deflateGetDictionaryLength(): UInt {
-        throw UnsupportedOperationException("Retrieving a deflate dictionary is not supported")
+        val (resultCode, length) = zRef!!.deflateGetDictionary(null)
+        val result = parseResult(resultCode)
+        if (result != ZResult.Ok) {
+            ZError.StreamError.thrown("Unexpected result $result")
+        }
+        return length.toInt().toUInt()
     }
 
     override fun deflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        throw UnsupportedOperationException("Retrieving a deflate dictionary is not supported")
+        val (resultCode, size) = zRef!!.deflateGetDictionary(dictionary.asUInt8Array(indices))
+        val result = parseResult(resultCode)
+        if (result != ZResult.Ok) {
+            ZError.StreamError.thrown("Unexpected result $result")
+        }
+        if (size == 0) {
+            return IntRange.EMPTY
+        }
+        return IntRange(indices.first, indices.first + size.toInt() - 1)
     }
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
@@ -89,7 +102,9 @@ class PakoZStream : ZStream {
     }
 
     override fun deflateParams(level: ZCompressionLevel, strategy: ZCompressionStrategy): ZResult {
-        throw UnsupportedOperationException("Setting deflate params is not supported")
+        return parseResult(
+            zRef!!.deflateParams(level.value, strategy.value)
+        )
     }
 
     override fun deflate(flush: ZFlush): ZResult {
@@ -117,11 +132,24 @@ class PakoZStream : ZStream {
     }
 
     override fun inflateGetDictionaryLength(): UInt {
-        throw UnsupportedOperationException("Retrieving an inflate dictionary is not supported")
+        val (resultCode, length) = zRef!!.inflateGetDictionary(null)
+        val result = parseResult(resultCode)
+        if (result != ZResult.Ok) {
+            ZError.StreamError.thrown("Unexpected result $result")
+        }
+        return length.toInt().toUInt()
     }
 
     override fun inflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        throw UnsupportedOperationException("Retrieving an inflate dictionary is not supported")
+        val (resultCode, size) = zRef!!.inflateGetDictionary(dictionary.asUInt8Array(indices))
+        val result = parseResult(resultCode)
+        if (result != ZResult.Ok) {
+            ZError.StreamError.thrown("Unexpected result $result")
+        }
+        if (size == 0) {
+            return IntRange.EMPTY
+        }
+        return IntRange(indices.first, indices.first + size.toInt() - 1)
     }
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {

@@ -36,9 +36,9 @@ val buildAllTask = tasks.create("buildAll") {
     group = "cargo"
     for (target in targets) {
         val tree = layout.buildDirectory.get().dir(target).dir(profile).asFileTree.matching {
-            include("${project.name}.dll")
-            include("lib${project.name}.dylib")
-            include("lib${project.name}.so")
+            include("pak.dll")
+            include("libpak.dylib")
+            include("libpak.so")
         }
         outputs.files(tree)
     }

@@ -47,7 +47,7 @@ kotlin {
         }
         jsMain {
             dependencies {
-                implementation(npm("pako", "2.1.0"))
+                implementation(npm("pako", file("src/jsMain/resources/pako")))
             }
         }
     }
