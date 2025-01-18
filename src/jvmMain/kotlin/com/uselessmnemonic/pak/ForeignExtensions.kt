@@ -15,5 +15,3 @@ internal fun ByteArray.asMemorySegment(range: IntRange): MemorySegment {
 
     return MemorySegment.ofArray(this).asSlice(first, last - first + 1)
 }
-
-internal inline fun MemorySegment.takeIfNotNull() = takeIf { address() != 0L }

@@ -90,7 +90,9 @@ final class PakExt {
 
     static final MethodHandle deflateParamsCritical = linker.downcallHandle(
         lookup.find("deflate_params_critical").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                                                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
+                                                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
         Linker.Option.critical(true)
     );
 
@@ -108,7 +110,9 @@ final class PakExt {
 
     static final MethodHandle deflateCritical = linker.downcallHandle(
         lookup.find("deflate_critical").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                              ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
+                              ValueLayout.JAVA_INT),
         Linker.Option.critical(true)
     );
 
@@ -144,7 +148,9 @@ final class PakExt {
 
     static final MethodHandle inflateCritical = linker.downcallHandle(
         lookup.find("inflate_critical").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                              ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
+                              ValueLayout.JAVA_INT),
         Linker.Option.critical(true)
     );
 

@@ -62,6 +62,14 @@ public final class ZStreamRef implements AutoCloseable {
         this.output = output;
     }
 
+    public int getAvailIn() {
+        return (int) input.byteSize();
+    }
+
+    public int getAvailOut() {
+        return (int) output.byteSize();
+    }
+
     public long getTotalIn() {
         if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
             return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.totalInOffset));
@@ -77,7 +85,12 @@ public final class ZStreamRef implements AutoCloseable {
     }
 
     public String getMsg() throws Throwable {
-        return getMsgSegment().getString(0);
+        var segment = stream.get(ValueLayout.ADDRESS, PakExt.msgOffset).asReadOnly();
+        if (segment.address() == 0) {
+            return null;
+        }
+        var msgLen = ForeignHelpers.strlen(segment);
+        return segment.reinterpret(msgLen + 1).getString(0);
     }
 
     public MemorySegment getMsgSegment() throws Throwable {

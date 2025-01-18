@@ -29,8 +29,8 @@ kotlin {
         nodejs()
         browser()
     }
-    mingwX64()
-//    macosX64()
+//    mingwX64()
+    macosX64()
 //    linuxX64()
 
     sourceSets {
