@@ -18,7 +18,7 @@ class JavaZStream : ZStream {
 
     private fun parseResult(result: Int): ZResult {
         return ZResult.entries.find { it.value == result }
-            ?: ZError.entries.find { it.value == result }?.thrown(zRef.msg.takeIfNotNull()?.getString(0))
+            ?: ZError.entries.find { it.value == result }?.thrown(zRef.msg)
             ?: throw IllegalStateException("Unrecognized result value $result")
     }
 
@@ -29,11 +29,11 @@ class JavaZStream : ZStream {
      * @param buffer The input segment, with the desired buffer size already configured.
      */
     fun setInput(buffer: MemorySegment) {
-        zRef.input = buffer
+        zRef.setInput(buffer)
     }
 
     override fun setInput(buffer: ByteArray, indices: IntRange) {
-        zRef.input = buffer.asMemorySegment(indices)
+        zRef.setInput(buffer.asMemorySegment(indices))
     }
 
     /**
@@ -43,11 +43,11 @@ class JavaZStream : ZStream {
      * @param buffer The output segment, with the desired buffer size already configured.
      */
     fun setOutput(buffer: MemorySegment) {
-        zRef.output = buffer
+        zRef.setOutput(buffer)
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        zRef.output = buffer.asMemorySegment(indices)
+        zRef.setOutput(buffer.asMemorySegment(indices))
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {

@@ -9,7 +9,26 @@ final class ForeignHelpers {
     static final private Linker linker = Linker.nativeLinker();
     static final private SymbolLookup stdLookup = linker.defaultLookup();
 
-    static final private MethodHandle strlenHandle = stdLookup.find("strlen").map(it ->
+    static final ValueLayout ULONG;
+    static final long ULONG_MAX;
+    static final long UINT_MAX = 0x00000000FFFFFFFFL;
+
+    static {
+        var nativeLong = linker.canonicalLayouts().get("long");
+        var nativeLongSize = nativeLong.byteSize();
+        if (nativeLongSize == 4) {
+            ULONG = ValueLayout.JAVA_INT;
+            ULONG_MAX = 0x00000000FFFFFFFFL;
+        } else if (nativeLongSize == 8) {
+            ULONG = ValueLayout.JAVA_LONG;
+            ULONG_MAX = 0xFFFFFFFFFFFFFFFFL;
+        } else {
+            var msg = String.format("Pak cannot be used on this platform because 'long' is %d bytes", nativeLongSize);
+            throw new RuntimeException(msg);
+        }
+    }
+
+    static final private MethodHandle strlen = stdLookup.find("strlen").map(it ->
         linker.downcallHandle(it, FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS))
     ).orElseThrow();
 
@@ -21,7 +40,7 @@ final class ForeignHelpers {
             return SymbolLookup.libraryLookup(name, arena);
         } catch (IllegalArgumentException _) {}
         throw new NoSuchElementException(
-            "no library available under any of %s".formatted(Arrays.toString(names))
+            String.format("no library available under any of %s", Arrays.toString(names))
         );
     }
 
@@ -29,7 +48,7 @@ final class ForeignHelpers {
      * Calls C strlen on the given segment, which is expected to point to a null-terminated string.
      */
     static long strlen(MemorySegment segment) throws Throwable {
-        return (long) strlenHandle.invokeExact(segment);
+        return (long) strlen.invokeExact(segment);
     }
 
     /**

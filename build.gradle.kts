@@ -30,8 +30,8 @@ kotlin {
         browser()
     }
     mingwX64()
-    //macosX64()
-    //linuxX64()
+//    macosX64()
+//    linuxX64()
 
     sourceSets {
         commonTest {
@@ -67,10 +67,11 @@ tasks.named<Test>("jvmTest") {
         )
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
+    environment["RUST_BACKTRACE"] = "1"
 }
 
 tasks.named<ProcessResources>("jvmProcessResources") {
-    val zExtBuildAll = tasks.getByPath(":pakext:buildAll")
+    val zExtBuildAll = tasks.getByPath(":pak-rs:buildAll")
     from(zExtBuildAll.outputs.files) {
         eachFile {
             val target = file.parentFile.parentFile.name.split('-')[0]

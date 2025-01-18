@@ -1,8 +1,13 @@
 [package]
-name = "pakext"
+name = "pak-rs"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.84.0"
 
 [lib]
 crate-type = ["cdylib"]
 bench = false
+name = "pak"
+
+[dependencies]
+libloading = "0.8"
