@@ -1,7 +1,7 @@
 use std::ffi::{c_char, c_ulong, c_void, OsString};
-use std::alloc::{alloc_zeroed, Layout};
 use std::marker::PhantomData;
 use std::env;
+use std::ops::Deref;
 use std::sync::LazyLock;
 use libloading::Library;
 
@@ -43,8 +43,7 @@ type ZDeflateFn = unsafe extern "C" fn(stream: *mut ZStream, flush: i32) -> i32;
 type ZDeflateResetFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
 type ZDeflateEndFn = unsafe extern "C" fn(stream: *mut ZStream) -> i32;
 
-type ZInflateInitFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, version: *const c_char, size: u32) -> i32;
-type ZInflateParamsFn = unsafe extern "C" fn(stream: *mut ZStream, level: i32, strategy: i32) -> i32;
+type ZInflateInitFn = unsafe extern "C" fn(stream: *mut ZStream, version: *const c_char, size: u32) -> i32;
 type ZInflateGetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *mut u8, size: *mut u32) -> i32;
 type ZInflateSetDictionaryFn = unsafe extern "C" fn(stream: *mut ZStream, dictionary: *const u8, size: u32) -> i32;
 type ZInflateFn = unsafe extern "C" fn(stream: *mut ZStream, flush: i32) -> i32;
@@ -88,9 +87,9 @@ impl<'z> ZLib<'z> {
         };
         unsafe {
             let library = Library::new(path).unwrap();
-            let zlib_version = library.get::<extern "C" fn () -> *const c_char>(b"zlibVersion\0").unwrap()();
+            let zlib_version = library.get::<ZLibVersionFn>(b"zlibVersion\0").unwrap()();
 
-            let deflate_init = library.get::<ZDeflateInitFn>(b"_deflateInit\0").unwrap().deref().to_owned();
+            let deflate_init = library.get::<ZDeflateInitFn>(b"deflateInit_\0").unwrap().deref().to_owned();
             let deflate_params = library.get::<ZDeflateParamsFn>(b"deflateParams\0").unwrap().deref().to_owned();
             let deflate_get_dictionary = library.get::<ZDeflateGetDictionaryFn>(b"deflateGetDictionary\0").unwrap().deref().to_owned();
             let deflate_set_dictionary = library.get::<ZDeflateSetDictionaryFn>(b"deflateSetDictionary\0").unwrap().deref().to_owned();
@@ -98,7 +97,7 @@ impl<'z> ZLib<'z> {
             let deflate_reset = library.get::<ZDeflateResetFn>(b"deflateReset\0").unwrap().deref().to_owned();
             let deflate_end = library.get::<ZDeflateEndFn>(b"deflateEnd\0").unwrap().deref().to_owned();
     
-            let inflate_init = library.get::<ZInflateInitFn>(b"_inflateInit\0").unwrap().deref().to_owned();
+            let inflate_init = library.get::<ZInflateInitFn>(b"inflateInit_\0").unwrap().deref().to_owned();
             let inflate_get_dictionary = library.get::<ZInflateGetDictionaryFn>(b"inflateGetDictionary\0").unwrap().deref().to_owned();
             let inflate_set_dictionary = library.get::<ZInflateSetDictionaryFn>(b"inflateSetDictionary\0").unwrap().deref().to_owned();
             let inflate = library.get::<ZInflateFn>(b"inflate\0").unwrap().deref().to_owned();
@@ -132,21 +131,8 @@ unsafe impl<'z> Sync for ZLib<'z> {}
 unsafe impl<'z> Send for ZLib<'z> {}
 
 static ZLIB: LazyLock<ZLib<'static>> = LazyLock::new(ZLib::new);
-static Z_STREAM_LAYOUT: Layout = Layout::new::<ZStream>();
 
 impl<'s> ZStream<'s> {
-    pub unsafe fn new() -> &'s mut Self {
-        let ptr = alloc_zeroed(Z_STREAM_LAYOUT) as *mut ZStream;
-        ptr.as_mut().unwrap()
-    }
-
-    pub unsafe fn from_ref(value: u64) -> &'s mut Self {
-        (value as *mut ZStream).as_mut().unwrap()
-    }
-
-    pub unsafe fn to_ref(&mut self) -> u64 {
-        self as *mut _ as usize as u64
-    }
 
     pub unsafe fn deflate_init(&mut self, level: i32) -> i32 {
         (ZLIB.deflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
@@ -176,8 +162,8 @@ impl<'s> ZStream<'s> {
         (ZLIB.deflate_end)(self)
     }
 
-    pub unsafe fn inflate_init(&mut self, level: i32) -> i32 {
-        (ZLIB.inflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
+    pub unsafe fn inflate_init(&mut self) -> i32 {
+        (ZLIB.inflate_init)(self, ZLIB.zlib_version, size_of::<ZStream>() as u32)
     }
 
     pub unsafe fn inflate_get_dictionary(&mut self, dictionary: *mut u8, size: *mut u32) -> i32 {

@@ -130,7 +130,7 @@ final class PakExt {
 
     static final MethodHandle inflateInit = linker.downcallHandle(
         lookup.find("inflate_init").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
         Linker.Option.critical(false)
     );
 

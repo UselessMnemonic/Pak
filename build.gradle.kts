@@ -29,8 +29,8 @@ kotlin {
         nodejs()
         browser()
     }
-//    mingwX64()
-    macosX64()
+    mingwX64()
+//    macosX64()
 //    linuxX64()
 
     sourceSets {
@@ -67,6 +67,7 @@ tasks.named<Test>("jvmTest") {
         )
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
+    environment["RUST_BACKTRACE"] = "1"
 }
 
 tasks.named<ProcessResources>("jvmProcessResources") {
