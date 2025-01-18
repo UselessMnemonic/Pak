@@ -1,94 +1,87 @@
 package com.uselessmnemonic.pak;
 
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemoryLayout.PathElement;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.StructLayout;
-import java.lang.foreign.ValueLayout;
+import java.lang.foreign.*;
 
-class ZStreamRef implements AutoCloseable {
-    private static final StructLayout z_streamLayout = ForeignHelpers.autoPad(
-        ValueLayout.ADDRESS.withName("next_in"),
-        ValueLayout.JAVA_INT.withName("avail_in"),
-        ZLib.ULONG.withName("total_in"),
-
-        ValueLayout.ADDRESS.withName("next_out"),
-        ValueLayout.JAVA_INT.withName("avail_out"),
-        ZLib.ULONG.withName("total_out"),
-
-        ValueLayout.ADDRESS.withName("msg"),
-        ValueLayout.ADDRESS.withName("state"),
-
-        ValueLayout.ADDRESS.withName("zalloc"),
-        ValueLayout.ADDRESS.withName("zfree"),
-        ValueLayout.ADDRESS.withName("opaque"),
-
-        ValueLayout.JAVA_INT.withName("data_type"),
-        ZLib.ULONG.withName("adler"),
-        ZLib.ULONG // reserved
-    ).withName("z_stream");
-
-    private static final long total_inOffset = z_streamLayout.byteOffset(PathElement.groupElement("total_in"));
-    private static final long total_outOffset = z_streamLayout.byteOffset(PathElement.groupElement("total_out"));
-
-    private static final long msgOffset = z_streamLayout.byteOffset(PathElement.groupElement("msg"));
-    private static final long adlerOffset = z_streamLayout.byteOffset(PathElement.groupElement("adler"));
+/**
+ * Bindings for pakext in FFM mode.
+ */
+public final class ZStreamRef implements AutoCloseable {
 
     private final Arena arena = Arena.ofShared();
-    private final MemorySegment z_stream = Arena.global().allocate(z_streamLayout);
+    private final MemorySegment stream = Arena.global().allocate(PakExt.streamLayout);
     private MemorySegment input = MemorySegment.NULL;
     private MemorySegment output = MemorySegment.NULL;
 
-    void setInput(MemorySegment input) {
+    public void setInput(byte[] input) {
+        if (input == null) {
+            this.input = MemorySegment.NULL;
+            return;
+        }
+        this.input = MemorySegment.ofArray(input);
+    }
+
+    public void setInput(byte[] input, int offset, int length) {
+        if (input == null || length == 0) {
+            this.input = MemorySegment.NULL;
+            return;
+        }
+        this.input = MemorySegment.ofArray(input).asSlice(offset, length);
+    }
+
+    public void setInput(MemorySegment input) {
         var byteSize = input.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer is too large to process (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer is too large to process (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
         this.input = input;
     }
 
-    void setOutput(MemorySegment output) {
+    public void setOutput(byte[] output) {
+        if (output == null) {
+            this.output = MemorySegment.NULL;
+            return;
+        }
+        this.output = MemorySegment.ofArray(output);
+    }
+
+    public void setOutput(byte[] output, int offset, int length) {
+        if (output == null || length == 0) {
+            this.output = MemorySegment.NULL;
+            return;
+        }
+        this.output = MemorySegment.ofArray(output).asSlice(offset, length);
+    }
+
+    public void setOutput(MemorySegment output) {
         var byteSize = output.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer has more capacity than is usable (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer has more capacity than is usable (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
         this.output = output;
     }
 
-    MemorySegment getInput() {
-        return input;
-    }
-
-    MemorySegment getOutput() {
-        return output;
-    }
-
-    int getAvailIn() {
-        var size = input.byteSize();
-        return (int) size;
-    }
-
-    int getAvailOut() {
-        var size = output.byteSize();
-        return (int) size;
-    }
-
-    long getTotalIn() {
-        if (ZLib.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(z_stream.get(ValueLayout.JAVA_INT, total_inOffset));
+    public long getTotalIn() {
+        if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.totalInOffset));
         }
-        return z_stream.get(ValueLayout.JAVA_LONG, total_inOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakExt.totalInOffset);
     }
 
-    long getTotalOut() {
-        if (ZLib.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(z_stream.get(ValueLayout.JAVA_INT, total_outOffset));
+    public long getTotalOut() {
+        if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.totalOutOffset));
         }
-        return z_stream.get(ValueLayout.JAVA_LONG, total_outOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakExt.totalOutOffset);
     }
 
-    MemorySegment getMsg() throws Throwable {
-        var segment = z_stream.get(ValueLayout.ADDRESS, msgOffset).asReadOnly();
+    public String getMsg() throws Throwable {
+        return getMsgSegment().getString(0);
+    }
+
+    public MemorySegment getMsgSegment() throws Throwable {
+        var segment = stream.get(ValueLayout.ADDRESS, PakExt.msgOffset).asReadOnly();
         if (segment.address() == 0) {
             return MemorySegment.NULL;
         }
@@ -96,43 +89,54 @@ class ZStreamRef implements AutoCloseable {
         return segment.reinterpret(msgLen + 1);
     }
 
-    long getAdler() {
-        if (ZLib.ULONG == ValueLayout.JAVA_INT) {
-            return Integer.toUnsignedLong(z_stream.get(ValueLayout.JAVA_INT, adlerOffset));
+    public long getAdler() {
+        if (ForeignHelpers.ULONG == ValueLayout.JAVA_INT) {
+            return Integer.toUnsignedLong(stream.get(ValueLayout.JAVA_INT, PakExt.adlerOffset));
         }
-        return z_stream.get(ValueLayout.JAVA_LONG, adlerOffset);
+        return stream.get(ValueLayout.JAVA_LONG, PakExt.adlerOffset);
     }
 
-    int deflateInit(int level) throws Throwable {
-        return ZLib.deflateInit(z_stream, level);
+    public int deflateInit(int level) throws Throwable {
+        return (int) PakExt.deflateInit.invokeExact(stream, level);
     }
 
-    int deflateParams(int level, int strategy) throws Throwable {
-        return PakExt.criticalDeflateParams(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), level, strategy);
+    public int deflateParams(int level, int strategy) throws Throwable {
+        return (int) PakExt.deflateParamsCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), level, strategy);
     }
 
-    int deflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
+    public int deflateGetDictionary(byte[] dictionary, int[] size) throws Throwable {
+        var sizeSegment = MemorySegment.ofArray(size);
+        return (int) PakExt.deflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
+    }
+
+    public int deflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
         var byteSize = dictionary.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer has more capacity than is usable (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer has more capacity than is usable (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
         size = size.asSlice(0, 4);
-        size.set(ValueLayout.JAVA_INT, 0, (int) byteSize);
-        return ZLib.deflateGetDictionary(z_stream, dictionary, size);
+        return (int) PakExt.deflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
     }
 
-    int deflateSetDictionary(MemorySegment dictionary) throws Throwable {
+    public int deflateSetDictionary(byte[] dictionary, int offset, int length) throws Throwable {
+        var dictionarySegment = MemorySegment.ofArray(dictionary).asSlice(offset, length);
+        return (int) PakExt.deflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
+    }
+
+    public int deflateSetDictionary(MemorySegment dictionary) throws Throwable {
         long byteSize = dictionary.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer is too large to process (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer is too large to process (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
-        return ZLib.deflateSetDictionary(z_stream, dictionary, (int) byteSize);
+        return (int) PakExt.deflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
     }
 
-    int deflate(int flush) throws Throwable {
+    public int deflate(int flush) throws Throwable {
         var prevTotalIn = getTotalIn();
         var prevTotalOut = getTotalOut();
-        var result = PakExt.criticalDeflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var result = (int) PakExt.deflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
         var totalRead = getTotalIn() - prevTotalIn;
         var totalWrite = getTotalOut() - prevTotalOut;
         input = input.asSlice(totalRead);
@@ -140,40 +144,52 @@ class ZStreamRef implements AutoCloseable {
         return result;
     }
 
-    int deflateReset() throws Throwable {
-        return ZLib.deflateReset(z_stream);
+    public int deflateReset() throws Throwable {
+        return (int) PakExt.deflateReset.invokeExact(stream);
     }
 
-    int deflateEnd() throws Throwable {
-        return ZLib.deflateEnd(z_stream);
+    public int deflateEnd() throws Throwable {
+        return (int) PakExt.deflateEnd.invokeExact(stream);
     }
 
-    int inflateInit() throws Throwable {
-        return ZLib.inflateInit(z_stream);
+    public int inflateInit() throws Throwable {
+        return (int) PakExt.inflateInit.invokeExact(stream);
     }
 
-    int inflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
+    public int inflateGetDictionary(byte[] dictionary, int[] size) throws Throwable {
+        var sizeSegment = MemorySegment.ofArray(size);
+        return (int) PakExt.inflateGetDictionaryCritical.invokeExact(stream, dictionary, sizeSegment);
+    }
+
+    public int inflateGetDictionary(MemorySegment dictionary, MemorySegment size) throws Throwable {
         var byteSize = dictionary.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer has more capacity than is usable (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer has more capacity than is usable (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
         size = size.asSlice(0, 4);
         size.set(ValueLayout.JAVA_INT, 0, (int) byteSize);
-        return ZLib.inflateGetDictionary(z_stream, dictionary, size);
+        return (int) PakExt.inflateGetDictionaryCritical.invokeExact(stream, dictionary, size);
     }
 
-    int inflateSetDictionary(MemorySegment dictionary) throws Throwable {
+    public int inflateSetDictionary(byte[] dictionary, int offset, int length) throws Throwable {
+        var dictionarySegment = MemorySegment.ofArray(dictionary).asSlice(offset, length);
+        return (int) PakExt.inflateSetDictionaryCritical.invokeExact(stream, dictionarySegment, (long) length);
+    }
+
+    public int inflateSetDictionary(MemorySegment dictionary) throws Throwable {
         long byteSize = dictionary.byteSize();
-        if (byteSize > ZLib.UINT_MAX) {
-            throw new IllegalArgumentException("Buffer is too large to process (%d bytes)".formatted(byteSize));
+        if (byteSize > ForeignHelpers.UINT_MAX) {
+            var message = String.format("Buffer is too large to process (%d bytes)", byteSize);
+            throw new IllegalArgumentException(message);
         }
-        return ZLib.inflateSetDictionary(z_stream, dictionary, (int) byteSize);
+        return (int) PakExt.inflateSetDictionaryCritical.invokeExact(stream, dictionary, (int) byteSize);
     }
 
-    int inflate(int flush) throws Throwable {
+    public int inflate(int flush) throws Throwable {
         var prevTotalIn = getTotalIn();
         var prevTotalOut = getTotalOut();
-        var result = PakExt.criticalInflate(z_stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
+        var result = (int) PakExt.inflateCritical.invokeExact(stream, input, output, (int) input.byteSize(), (int) output.byteSize(), flush);
         var totalRead = getTotalIn() - prevTotalIn;
         var totalWrite = getTotalOut() - prevTotalOut;
         input = input.asSlice(totalRead);
@@ -181,12 +197,12 @@ class ZStreamRef implements AutoCloseable {
         return result;
     }
 
-    int inflateReset() throws Throwable {
-        return ZLib.inflateReset(z_stream);
+    public int inflateReset() throws Throwable {
+        return (int) PakExt.inflateReset.invokeExact(stream);
     }
 
-    int inflateEnd() throws Throwable {
-        return ZLib.inflateEnd(z_stream);
+    public int inflateEnd() throws Throwable {
+        return (int) PakExt.inflateEnd.invokeExact(stream);
     }
 
     @Override
@@ -194,7 +210,10 @@ class ZStreamRef implements AutoCloseable {
         try {
             inflateEnd();
             deflateEnd();
-        } catch (Throwable _) {}
-        arena.close();
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        } finally {
+            arena.close();
+        }
     }
 }

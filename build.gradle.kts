@@ -20,7 +20,7 @@ kotlin {
     jvm {
         withJava()
         compilerOptions {
-            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_9
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22
             moduleName = "com.uselessmnemonic.pak"
         }
     }
@@ -30,8 +30,8 @@ kotlin {
         browser()
     }
     mingwX64()
-    //macosX64()
-    //linuxX64()
+//    macosX64()
+//    linuxX64()
 
     sourceSets {
         commonTest {
