@@ -5,3 +5,7 @@ plugins {
 rootProject.name = "Pak"
 
 include("pak-rs")
+include("pak-java")
+include("pak-java:api")
+include("pak-java:22")
+include("pak-java:8")

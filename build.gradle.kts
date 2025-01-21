@@ -10,17 +10,10 @@ repositories {
     mavenCentral()
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
-    }
-}
-
 kotlin {
     jvm {
-        withJava()
         compilerOptions {
-            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
             moduleName = "com.uselessmnemonic.pak"
         }
     }
@@ -34,6 +27,12 @@ kotlin {
 //    linuxX64()
 
     sourceSets {
+        jvmMain {
+            dependencies {
+                implementation(project("pak-java:api"))
+                implementation(project("pak-java:8"))
+            }
+        }
         commonTest {
             dependencies {
                 implementation("io.kotest:kotest-assertions-core:6.0.0.M1")

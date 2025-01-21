@@ -102,7 +102,7 @@ interface ZStream : AutoCloseable {
 
     /**
      * Returns the sliding dictionary being maintained by [deflate]. The provided buffer must have enough space
-     * where 32768 bytes is always enough.
+     * where 32768 bytes is always enough. Otherwise, a memory access error is inevitable.
      *
      * It may return a length less than the window size, even when more than the window size in input has been provided.
      * In that case, it may return up to 258 bytes less due to how zlib's implementation of deflate manages the sliding
@@ -112,11 +112,10 @@ interface ZStream : AutoCloseable {
      * application.
      *
      * @param dictionary The buffer in which to write data
-     * @param indices The range in the buffer which accepts data
-     * @return [ZResult.Ok]
+     * @return The length of the retrieved dictionary
      * @throws ZException
      */
-    fun deflateGetDictionary(dictionary: ByteArray, indices: IntRange = dictionary.indices): IntRange
+    fun deflateGetDictionary(dictionary: ByteArray): UInt
 
     /**
      * Initializes the compression dictionary from the given byte sequence without producing any compressed output.
@@ -135,8 +134,8 @@ interface ZStream : AutoCloseable {
      * Upon return of this function, [adler] is set to the Adler-32 value of the dictionary; the decompressor may later
      * use this value to determine which dictionary has been used by the compressor.
      *
-     * @param dictionary The buffer from which to read the dictionary
-     * @param indices The bounds of the dictionary data in the buffer
+     * @param dictionary The buffer containing dictionary data
+     * @param indices The range in the buffer which contains the dictionary data
      * @return [ZResult.Ok]
      * @throws ZException
      */
@@ -206,11 +205,10 @@ interface ZStream : AutoCloseable {
      * where 32768 bytes is always enough.
      *
      * @param dictionary The buffer in which to write data
-     * @param indices The range in the buffer which accepts data
-     * @return [ZResult.Ok]
+     * @return The length of the retrieved dictionary
      * @throws ZException
      */
-    fun inflateGetDictionary(dictionary: ByteArray, indices: IntRange = dictionary.indices): IntRange
+    fun inflateGetDictionary(dictionary: ByteArray): UInt
 
     /**
      * Initializes the decompression dictionary from the given uncompressed byte sequence. This function must be called
@@ -222,6 +220,8 @@ interface ZStream : AutoCloseable {
      * dictionary will amend what's there. The application must ensure that the dictionary that was used for compression
      * is provided.
      *
+     * @param dictionary The buffer containing dictionary data
+     * @param indices The range in the buffer which contains the dictionary data
      * @return [ZResult.Ok] if success
      * @throws ZException
      */

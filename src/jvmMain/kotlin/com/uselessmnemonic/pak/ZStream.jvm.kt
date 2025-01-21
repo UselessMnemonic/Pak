@@ -1,14 +1,10 @@
 package com.uselessmnemonic.pak
 
-import java.lang.foreign.Arena
-import java.lang.foreign.MemorySegment
-import java.lang.foreign.ValueLayout
-
 /**
- * An implementation of ZStream which uses the Foreign Function and Memory API to bind ZLib.
+ * An implementation of ZStream which uses JNI.
  */
 class JavaZStream : ZStream {
-    private val zRef = ZStreamRef()
+    private val zRef = ZStreamRefImpl()
 
     override val availIn get() = zRef.availIn.toUInt()
     override val availOut get() = zRef.availOut.toUInt()
@@ -18,36 +14,28 @@ class JavaZStream : ZStream {
 
     private fun parseResult(result: Int): ZResult {
         return ZResult.entries.find { it.value == result }
-            ?: ZError.entries.find { it.value == result }?.thrown(zRef.msg)
+            ?: parseError(result).thrown(zRef.msg)
+    }
+
+    private fun parseError(result: Int): ZError {
+        return ZError.entries.find { it.value == result }
             ?: throw IllegalStateException("Unrecognized result value $result")
     }
 
-    /**
-     * Provides input data to the compression engine from the given memory segment.
-     * Once set, the engine will continue to slice the same segment automatically until it is exhausted.
-     *
-     * @param buffer The input segment, with the desired buffer size already configured.
-     */
-    fun setInput(buffer: MemorySegment) {
-        zRef.setInput(buffer)
-    }
-
     override fun setInput(buffer: ByteArray, indices: IntRange) {
-        zRef.setInput(buffer.asMemorySegment(indices))
-    }
-
-    /**
-     * Provides output space to the compression engine from the given memory segment.
-     * Once set, the engine will fill as much output as is permitted.
-     *
-     * @param buffer The output segment, with the desired buffer size already configured.
-     */
-    fun setOutput(buffer: MemorySegment) {
-        zRef.setOutput(buffer)
+        if (indices.isEmpty()) {
+            zRef.setInput(null)
+        } else {
+            zRef.setInput(buffer, indices.first, indices.last - indices.first + 1)
+        }
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        zRef.setOutput(buffer.asMemorySegment(indices))
+        if (indices.isEmpty()) {
+            zRef.setOutput(null)
+        } else {
+            zRef.setOutput(buffer, indices.first, indices.last - indices.first + 1)
+        }
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
@@ -57,47 +45,28 @@ class JavaZStream : ZStream {
     }
 
     override fun deflateGetDictionaryLength(): UInt {
-        return Arena.ofConfined().use { arena ->
-            val size = arena.allocate(ValueLayout.JAVA_INT, 0)
-            val result = parseResult(
-                zRef.deflateGetDictionary(MemorySegment.NULL, size)
-            )
-            if (result != ZResult.Ok) {
-                ZError.StreamError.thrown("Unexpected result $result")
-            }
-            size.get(ValueLayout.JAVA_INT, 0).toUInt()
+        val result = zRef.deflateGetDictionary(null)
+        if (result < 0) {
+            parseError(result).thrown(zRef.msg)
         }
+        return result.toUInt()
     }
 
-    override fun deflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        if (indices.isEmpty()) {
-            return indices
+    override fun deflateGetDictionary(dictionary: ByteArray): UInt {
+        val result = zRef.deflateGetDictionary(dictionary)
+        if (result < 0) {
+            parseError(result).thrown(zRef.msg)
         }
-
-        val dictionary = dictionary.asMemorySegment(indices)
-        val size = Arena.ofConfined().use { arena ->
-            val size = arena.allocateFrom(ValueLayout.JAVA_INT, 0)
-            val result = parseResult(
-                zRef.deflateGetDictionary(dictionary, size)
-            )
-            if (result != ZResult.Ok) {
-                ZError.StreamError.thrown("Unexpected result $result")
-            }
-            // always bound by [0, indices.last - indices.first + 1]
-            // and therefore by [0, Int.MAX_VALUE]
-            size.get(ValueLayout.JAVA_INT, 0)
-        }
-
-        if (size == 0) {
-            return IntRange.EMPTY
-        }
-        return IntRange(indices.first, indices.first + size - 1)
+        return result.toUInt()
     }
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
-        val slice = dictionary.asMemorySegment(indices)
         return parseResult(
-            zRef.deflateSetDictionary(slice)
+            if (indices.isEmpty()) {
+                zRef.deflateSetDictionary(dictionary, 0, 0)
+            } else {
+                zRef.deflateSetDictionary(dictionary, indices.first, indices.last - indices.first + 1)
+            }
         )
     }
 
@@ -132,47 +101,28 @@ class JavaZStream : ZStream {
     }
 
     override fun inflateGetDictionaryLength(): UInt {
-        return Arena.ofConfined().use { arena ->
-            val size = arena.allocateFrom(ValueLayout.JAVA_INT, 0)
-            val result = parseResult(
-                zRef.inflateGetDictionary(MemorySegment.NULL, size)
-            )
-            if (result != ZResult.Ok) {
-                ZError.StreamError.thrown("Unexpected result $result")
-            }
-            size.get(ValueLayout.JAVA_INT, 0)
-        }.toUInt()
+        val result = zRef.inflateGetDictionary(null)
+        if (result < 0) {
+            parseError(result).thrown(zRef.msg)
+        }
+        return result.toUInt()
     }
 
-    override fun inflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        if (indices.isEmpty()) {
-            return indices
+    override fun inflateGetDictionary(dictionary: ByteArray): UInt {
+        val result = zRef.inflateGetDictionary(dictionary)
+        if (result < 0) {
+            parseError(result).thrown(zRef.msg)
         }
-
-        val dictionary = dictionary.asMemorySegment(indices)
-        val size = Arena.ofConfined().use { arena ->
-            val size = arena.allocateFrom(ValueLayout.JAVA_INT, 0)
-            val result = parseResult(
-                zRef.inflateGetDictionary(dictionary, size)
-            )
-            if (result != ZResult.Ok) {
-                ZError.StreamError.thrown("Unexpected result $result")
-            }
-            // always bound by [0, indices.last - indices.first + 1]
-            // and therefore by [0, Int.MAX_VALUE]
-            size.get(ValueLayout.JAVA_INT, 0)
-        }
-
-        if (size == 0) {
-            return IntRange.EMPTY
-        }
-        return IntRange(indices.first, indices.first + size - 1)
+        return result.toUInt()
     }
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
-        val slice = dictionary.asMemorySegment(indices)
         return parseResult(
-            zRef.inflateSetDictionary(slice)
+            if (indices.isEmpty()) {
+                zRef.inflateSetDictionary(dictionary, 0, 0)
+            } else {
+                zRef.inflateSetDictionary(dictionary, indices.first, indices.last - indices.first + 1)
+            }
         )
     }
 
