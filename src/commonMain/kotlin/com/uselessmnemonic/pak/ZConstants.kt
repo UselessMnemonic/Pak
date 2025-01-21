@@ -119,8 +119,7 @@ enum class ZError(val value: Int) {
     DataError(-3),
 
     /**
-     * Indicates that not enough memory could be allocated by zlib for its internal state. For most applications this is
-     * fatal, so either a platform's own [RuntimeException] will be propagated or one will be raised.
+     * Indicates that not enough memory could be allocated by zlib for its internal state.
      */
     MemoryError(-4),
 

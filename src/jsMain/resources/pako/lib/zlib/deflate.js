@@ -1953,7 +1953,7 @@ const deflateEnd = (strm) => {
 const deflateGetDictionary = (strm, dictionary) => {
 
   if (deflateStateCheck(strm)) {
-    return [Z_STREAM_ERROR, -1];
+    return Z_STREAM_ERROR;
   }
 
   const s = strm.state;
@@ -1962,18 +1962,18 @@ const deflateGetDictionary = (strm, dictionary) => {
     len = s.w_size;
   }
   if (!dictionary) {
-    return [Z_OK, len]
+    return len
+  }
+  if (dictionary.byteLength < len) {
+    return len
   }
 
   /* copy dictionary */
-  if (dictionary.byteLength < len) {
-    len = dictionary.byteLength
-  }
   if (len) {
     const window = s.window
     dictionary.set(window.slice(s.strstart + s.lookahead - len, len))
   }
-  return [Z_OK, len];
+  return len;
 }
 
 

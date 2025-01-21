@@ -9,35 +9,44 @@ import kotlinx.cinterop.*
 class NativeZStream : ZStream {
 
     private val zRef = nativeHeap.alloc<platform.zlib.z_stream>()
+    private var input: PinnableSource = EmptySource
+    private var output: PinnableSource = EmptySource
 
-    private var input: ZBuffer = EmptyZBuffer
-    private var output: ZBuffer = EmptyZBuffer
-    override val availIn get() = input.byteSize
-    override val availOut get() = output.byteSize
+    override val availIn get() = zRef.avail_in
+    override val availOut get() = zRef.avail_out
     override val totalIn get() = zRef.total_in.toULong()
     override val totalOut get() = zRef.total_out.toULong()
     override val adler get() = zRef.adler.toULong()
 
     private fun parseResult(result: Int): ZResult {
-        return ZResult.entries.find { it.value == result }
-            ?: ZError.entries.find { it.value == result }?.thrown(zRef.msg?.toKString())
+        return ZResult.entries.find { it.value == result } ?: throwError(result)
+    }
+
+    private fun throwError(result: Int): Nothing {
+        ZError.entries.find { it.value == result }?.thrown(zRef.msg?.toKString())
             ?: throw IllegalStateException("Unrecognized result value $result")
     }
 
-    private inline fun <T> pinningBuffers(crossinline action: () -> T): T {
-        return input.pinning { inputPtr ->
-            output.pinning { outputPtr ->
-                zRef.next_in = inputPtr
-                zRef.next_out = outputPtr
-                zRef.avail_in = input.byteSize
-                zRef.avail_out = output.byteSize
-                val result = action()
-                zRef.next_in = null
+    private inline fun <T> consumeBuffers(crossinline action: () -> T): T {
+        val prevAvailIn = availIn
+        val prevAvailOut = availOut
+
+        val nextIn = input.pin()
+        try {
+            val nextOut = output.pin()
+            try {
+                zRef.next_in = nextIn
+                zRef.next_out = nextOut
+                return action()
+            } finally {
                 zRef.next_out = null
-                zRef.avail_in = 0U
-                zRef.avail_out = 0U
-                result
+                output.unpin()
+                output = output.slice(prevAvailOut - availOut)
             }
+        } finally {
+            zRef.next_in = null
+            input.unpin()
+            input = input.slice(prevAvailIn - availIn)
         }
     }
 
@@ -49,11 +58,25 @@ class NativeZStream : ZStream {
      * @param byteSize The number of bytes available to read
      */
     fun setInput(pointer: CPointer<UByteVar>, byteSize: UInt) {
-        input = NativeZBuffer(pointer, byteSize)
+        if (byteSize == 0U) {
+            zRef.avail_in = 0U
+            input = EmptySource
+            return
+        }
+
+        zRef.avail_in = byteSize
+        input = NativeSource(pointer)
     }
 
     override fun setInput(buffer: ByteArray, indices: IntRange) {
-        input = ByteArrayZBuffer(buffer, indices)
+        val byteSize = indices.getRangeLength(buffer).toUInt()
+        if (byteSize == 0U) {
+            zRef.avail_in = 0U
+            input = EmptySource
+            return
+        }
+        zRef.avail_in = byteSize
+        input = ByteArraySource(buffer, indices.first)
     }
 
     /**
@@ -64,11 +87,25 @@ class NativeZStream : ZStream {
      * @param byteSize The number of bytes available in the buffer
      */
     fun setOutput(pointer: CPointer<UByteVar>, byteSize: UInt) {
-        output = NativeZBuffer(pointer, byteSize)
+        if (byteSize == 0U) {
+            zRef.avail_out = 0U
+            output = EmptySource
+            return
+        }
+
+        zRef.avail_out = byteSize
+        output = NativeSource(pointer)
     }
 
     override fun setOutput(buffer: ByteArray, indices: IntRange) {
-        output = ByteArrayZBuffer(buffer, indices)
+        val byteSize = indices.getRangeLength(buffer).toUInt()
+        if (byteSize == 0U) {
+            zRef.avail_out = 0U
+            output = EmptySource
+            return
+        }
+        zRef.avail_out = byteSize
+        output = ByteArraySource(buffer, indices.first)
     }
 
     override fun deflateInit(level: ZCompressionLevel): ZResult {
@@ -79,7 +116,7 @@ class NativeZStream : ZStream {
 
     override fun deflateParams(level: ZCompressionLevel, strategy: ZCompressionStrategy): ZResult {
         return parseResult(
-            pinningBuffers {
+            consumeBuffers {
                 zRef.deflateParams(level.value, strategy.value)
             }
         )
@@ -87,64 +124,103 @@ class NativeZStream : ZStream {
 
     override fun deflateGetDictionaryLength(): UInt {
         return memScoped {
-            val size = alloc<UIntVar>()
+            val byteSize = alloc<UIntVar>()
             val result = parseResult(
-                zRef.deflateGetDictionary(null, size.ptr)
+                zRef.deflateGetDictionary(null, byteSize.ptr)
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
             }
-            size.value
+            byteSize.value
         }
     }
 
-    override fun deflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        if (indices.isEmpty()) {
-            return indices
-        }
-
-        val dictionary = ByteArrayZBuffer(dictionary, indices)
-        val size = memScoped {
-            val size = alloc<UIntVar>()
+    /**
+     * Returns the sliding dictionary being maintained by [deflate]. The provided buffer must have enough space
+     * where 32768 bytes is always enough. Otherwise, a memory access error is inevitable.
+     *
+     * It may return a length less than the window size, even when more than the window size in input has been provided.
+     * In that case, it may return up to 258 bytes less due to how zlib's implementation of deflate manages the sliding
+     * window and lookahead for matches.
+     *
+     * If the application needs the last window-size bytes of input, then that would need to be saved by the
+     * application.
+     *
+     * @param dictionary The start of the buffer in which to write data
+     * @return The length of the retrieved dictionary
+     * @throws ZException
+     */
+    fun deflateGetDictionary(dictionary: CPointer<UByteVar>): UInt {
+        return memScoped {
+            val byteSize = alloc<UIntVar>()
             val result = parseResult(
-                dictionary.pinning { dictionaryPtr ->
-                    zRef.deflateGetDictionary(dictionaryPtr?.reinterpret(), size.ptr)
+                zRef.deflateGetDictionary(dictionary, byteSize.ptr)
+            )
+            if (result != ZResult.Ok) {
+                ZError.StreamError.thrown("Unexpected result $result")
+            }
+            byteSize.value
+        }
+    }
+
+    override fun deflateGetDictionary(dictionary: ByteArray): UInt {
+        return memScoped {
+            val byteSize = alloc<UIntVar>()
+            val result = parseResult(
+                dictionary.usePinned { pinnedDictionary ->
+                    zRef.deflateGetDictionary(pinnedDictionary.addressOf(0).reinterpret(), byteSize.ptr)
                 }
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
             }
-            size.value
-        }.toInt()
-
-        if (size == 0) {
-            return IntRange.EMPTY
+            byteSize.value
         }
-        return IntRange(indices.first, indices.first + size - 1)
+    }
+
+    /**
+     * Initializes the compression dictionary from the given byte sequence without producing any compressed output.
+     * When using the zlib format, this function must be called immediately after [deflateInit] or [deflateReset], and
+     * before any call of [deflate]. The compressor and decompressor must use exactly the same dictionary (see
+     * [inflateSetDictionary]).
+     *
+     * The dictionary should consist of strings (byte sequences) that are likely to be encountered later in the data to
+     * be compressed, with the most commonly used strings preferably put towards the end of the dictionary. Using a
+     * dictionary is most useful when the data to be compressed is short and can be predicted with good accuracy; the
+     * data can then be compressed better than with the default empty dictionary.
+     *
+     * Depending on the size of the compression data structures selected by [deflateInit], a part of the dictionary may
+     * in effect be discarded, for example if the dictionary is larger than the window size.
+     *
+     * Upon return of this function, [adler] is set to the Adler-32 value of the dictionary; the decompressor may later
+     * use this value to determine which dictionary has been used by the compressor.
+     *
+     * @param dictionary The start of the buffer containing dictionary data
+     * @param length The length of dictionary data in the buffer
+     * @return [ZResult.Ok]
+     * @throws ZException
+     */
+    fun deflateSetDictionary(dictionary: CValuesRef<UByteVar>, length: UInt): ZResult {
+        return parseResult(
+            zRef.deflateSetDictionary(dictionary, length)
+        )
     }
 
     override fun deflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
-        val dictionary = ByteArrayZBuffer(dictionary, indices)
+        val byteSize = indices.getRangeLength(dictionary).toUInt()
         return parseResult(
-            dictionary.pinning { dictionaryPtr ->
-                zRef.deflateSetDictionary(dictionaryPtr?.reinterpret(), dictionary.byteSize)
+            dictionary.usePinned { pinnedDictionary ->
+                zRef.deflateSetDictionary(pinnedDictionary.addressOf(indices.first).reinterpret(), byteSize)
             }
         )
     }
 
     override fun deflate(flush: ZFlush): ZResult {
-        val prevTotalIn = totalIn
-        val prevTotalOut = totalOut
-        val result = parseResult(
-            pinningBuffers {
+        return parseResult(
+            consumeBuffers {
                 zRef.deflate(flush.value)
             }
         )
-        val totalRead = totalIn - prevTotalIn
-        val totalWrite = totalOut - prevTotalOut
-        input = input.slice(totalRead.toUInt())
-        output = output.slice(totalWrite.toUInt())
-        return result
     }
 
     override fun deflateReset(): ZResult {
@@ -167,64 +243,89 @@ class NativeZStream : ZStream {
 
     override fun inflateGetDictionaryLength(): UInt {
         return memScoped {
-            val size = alloc<UIntVar>()
+            val byteSize = alloc<UIntVar>()
             val result = parseResult(
-                zRef.inflateGetDictionary(null, size.ptr)
+                zRef.inflateGetDictionary(null, byteSize.ptr)
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
             }
-            size.value
+            byteSize.value
         }
     }
 
-    override fun inflateGetDictionary(dictionary: ByteArray, indices: IntRange): IntRange {
-        if (indices.isEmpty()) {
-            return indices
-        }
-
-        val dictionary = ByteArrayZBuffer(dictionary, indices)
-        val size = memScoped {
-            val size = alloc<UIntVar>()
+    /**
+     * Returns the sliding dictionary being maintained by [inflateInit]. The provided buffer must have enough space
+     * where 32768 bytes is always enough.
+     *
+     * @param dictionary The start of the buffer in which to write data
+     * @return The length of the retrieved dictionary
+     * @throws ZException
+     */
+    fun inflateGetDictionary(dictionary: CPointer<UByteVar>): UInt {
+        return memScoped {
+            val byteSize = alloc<UIntVar>()
             val result = parseResult(
-                dictionary.pinning { dictionaryPtr ->
-                    zRef.inflateGetDictionary(dictionaryPtr?.reinterpret(), size.ptr)
+                zRef.inflateGetDictionary(dictionary, byteSize.ptr)
+            )
+            if (result != ZResult.Ok) {
+                ZError.StreamError.thrown("Unexpected result $result")
+            }
+            byteSize.value
+        }
+    }
+
+    override fun inflateGetDictionary(dictionary: ByteArray): UInt {
+        return memScoped {
+            val byteSize = alloc<UIntVar>()
+            val result = parseResult(
+                dictionary.usePinned { pinnedDictionary ->
+                    zRef.inflateGetDictionary(pinnedDictionary.addressOf(0).reinterpret(), byteSize.ptr)
                 }
             )
             if (result != ZResult.Ok) {
                 ZError.StreamError.thrown("Unexpected result $result")
             }
-            size.value
-        }.toInt()
-
-        if (size == 0) {
-            return IntRange.EMPTY
+            byteSize.value
         }
-        return IntRange(indices.first, indices.first + size - 1)
+    }
+
+    /**
+     * Initializes the decompression dictionary from the given uncompressed byte sequence. This function must be called
+     * immediately after a call of [inflate], if that call returned [ZResult.NeedsDictionary].
+     *
+     * The dictionary chosen by the compressor can be determined from the Adler-32 value returned by that call of
+     * inflate. The compressor and decompressor must use exactly the same dictionary (see [deflateSetDictionary]).
+     * If the provided dictionary is smaller than the window and there is already data in the window, then the provided
+     * dictionary will amend what's there. The application must ensure that the dictionary that was used for compression
+     * is provided.
+     *
+     * @param dictionary The start of the buffer containing dictionary data
+     * @param length The length of dictionary data in the buffer
+     * @return [ZResult.Ok] if success
+     * @throws ZException
+     */
+    fun inflateSetDictionary(dictionary: CValuesRef<UByteVar>, length: UInt): ZResult {
+        return parseResult(
+            zRef.inflateSetDictionary(dictionary, length)
+        )
     }
 
     override fun inflateSetDictionary(dictionary: ByteArray, indices: IntRange): ZResult {
-        val dictionary = ByteArrayZBuffer(dictionary, indices)
+        val byteSize = indices.getRangeLength(dictionary).toUInt()
         return parseResult(
-            dictionary.pinning { dictionaryPtr ->
-                zRef.inflateSetDictionary(dictionaryPtr?.reinterpret(), dictionary.byteSize)
+            dictionary.usePinned { pinnedDictionary ->
+                zRef.inflateSetDictionary(pinnedDictionary.addressOf(indices.first).reinterpret(), byteSize)
             }
         )
     }
 
     override fun inflate(flush: ZFlush): ZResult {
-        val prevTotalIn = totalIn
-        val prevTotalOut = totalOut
-        val result = parseResult(
-            pinningBuffers {
+        return parseResult(
+            consumeBuffers {
                 zRef.inflate(flush.value)
             }
         )
-        val totalRead = totalIn - prevTotalIn
-        val totalWrite = totalOut - prevTotalOut
-        input = input.slice(totalRead.toUInt())
-        output = output.slice(totalWrite.toUInt())
-        return result
     }
 
     override fun inflateReset(): ZResult {

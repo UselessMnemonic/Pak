@@ -1519,25 +1519,25 @@ const inflateGetDictionary = (strm, dictionary) => {
 
   /* check state */
   if (inflateStateCheck(strm)) {
-    return [Z_STREAM_ERROR, -1];
+    return Z_STREAM_ERROR;
   }
 
   const state = strm.state;
   let len = state.whave;
   if (!dictionary) {
-    return [Z_OK, len]
+    return len
+  }
+  if (dictionary.byteLength < len) {
+    return len
   }
 
   /* copy dictionary */
-  if (dictionary.byteLength < len) {
-    len = dictionary.byteLength
-  }
   if (len) {
     const window = state.window
     dictionary.set(window.slice(state.wnext, len - state.wnext))
     dictionary.set(window.slice(0, state.wnext), len - state.wnext)
   }
-  return [Z_OK, len];
+  return len;
 }
 
 
