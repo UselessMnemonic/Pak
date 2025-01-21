@@ -1,18 +1,19 @@
-package com.uselessmnemonic.pak.jni;
+package com.uselessmnemonic.pak;
 
 /**
  * Bindings for pak-rs in JNI mode.
  */
-public final class JNIZStreamRef implements AutoCloseable {
+public final class ZStreamRefImpl implements ZStreamRef {
 
     private final long stream = PakRs.newStream();
     private byte[] input = null;
     private byte[] output = null;
 
-    private long totalIn = 0;
-    private long totalOut = 0;
-
-    private long adler = 1;
+    private volatile int availIn = 0;
+    private volatile int availOut = 0;
+    private volatile long totalIn = 0;
+    private volatile long totalOut = 0;
+    private volatile long adler = 1;
 
     public void setInput(byte[] input) {
         this.input = input;
@@ -22,8 +23,7 @@ public final class JNIZStreamRef implements AutoCloseable {
 
     public void setInput(byte[] input, int offset, int length) {
         if (input == null) {
-            this.input = null;
-            return;
+            throw new IllegalArgumentException("Input cannot be null");
         }
         if (offset < 0) {
             String message = String.format("Offset cannot be negative, was %d", offset);
@@ -66,6 +66,16 @@ public final class JNIZStreamRef implements AutoCloseable {
         PakRs.setOutput(stream, offset, length);
     }
 
+    @Override
+    public int getAvailIn() {
+        return availIn;
+    }
+
+    @Override
+    public int getAvailOut() {
+        return availOut;
+    }
+
     public long getTotalIn() {
         return totalIn;
     }
@@ -74,15 +84,15 @@ public final class JNIZStreamRef implements AutoCloseable {
         return totalOut;
     }
 
-    public String getMsg() {
-        return PakRs.getMsg(stream);
-    }
-
     public long getAdler() {
         return adler;
     }
 
-    public int deflateInit(int level) throws Throwable {
+    public String getMsg() {
+        return PakRs.getMsg(stream);
+    }
+
+    public int deflateInit(int level) {
         return PakRs.deflateInit(stream, level);
     }
 
@@ -90,8 +100,8 @@ public final class JNIZStreamRef implements AutoCloseable {
         return PakRs.deflateParams(stream, input, output, level, strategy);
     }
 
-    public int deflateGetDictionary(byte[] dictionary, int[] size) {
-        return PakRs.deflateGetDictionary(stream, dictionary, size);
+    public int deflateGetDictionary(byte[] dictionary) {
+        return PakRs.deflateGetDictionary(stream, dictionary);
     }
 
     public int deflateSetDictionary(byte[] dictionary, int offset, int length) {
@@ -125,8 +135,8 @@ public final class JNIZStreamRef implements AutoCloseable {
         return PakRs.inflateInit(stream);
     }
 
-    public int inflateGetDictionary(byte[] dictionary, int[] size) {
-        return PakRs.deflateGetDictionary(stream, dictionary, size);
+    public int inflateGetDictionary(byte[] dictionary) {
+        return PakRs.inflateGetDictionary(stream, dictionary);
     }
 
     public int inflateSetDictionary(byte[] dictionary, int offset, int length) {
@@ -141,7 +151,7 @@ public final class JNIZStreamRef implements AutoCloseable {
         if (offset + length > dictionary.length) {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
-        return PakRs.deflateSetDictionary(stream, dictionary, offset, length);
+        return PakRs.inflateSetDictionary(stream, dictionary, offset, length);
     }
 
     public int inflate(int flush) {

@@ -1,7 +1,4 @@
-package com.uselessmnemonic.pak.jni;
-
-import dalvik.annotation.optimization.CriticalNative;
-import dalvik.annotation.optimization.FastNative;
+package com.uselessmnemonic.pak;
 
 import java.io.InputStream;
 import java.net.URL;
@@ -25,7 +22,7 @@ final class PakRs {
 
     static native int deflateInit(long streamRef, int level);
     static native int deflateParams(long streamRef, byte[] input, byte[] output, int level, int strategy);
-    static native int deflateGetDictionary(long streamRef, byte[] dictionary, int[] size);
+    static native int deflateGetDictionary(long streamRef, byte[] dictionary);
     static native int deflateSetDictionary(long streamRef, byte[] dictionary, int offset, int length);
     static native int deflate(long streamRef, byte[] input, byte[] output, int flush);
     static native int deflateReset(long streamRef);
@@ -34,7 +31,7 @@ final class PakRs {
     /* Inflate functions */
 
     static native int inflateInit(long streamRef);
-    static native int inflateGetDictionary(long streamRef, byte[] dictionary, int[] size);
+    static native int inflateGetDictionary(long streamRef, byte[] dictionary);
     static native int inflateSetDictionary(long streamRef, byte[] dictionary, int offset, int length);
     static native int inflate(long streamRef, byte[] input, byte[] output, int flush);
     static native int inflateReset(long streamRef);
@@ -65,7 +62,7 @@ final class PakRs {
         }
 
         String jarPath = String.format("%s/%s%s", libArch, libName, libExt);
-        URL libUrl = JNIZStreamRef.class.getClassLoader().getResource(jarPath);
+        URL libUrl = PakRs.class.getClassLoader().getResource(jarPath);
         if (libUrl == null) {
             String message = String.format("Unsupported platform %s/%s", osName, osArch);
             throw new RuntimeException(message);

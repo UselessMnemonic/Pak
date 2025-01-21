@@ -41,7 +41,7 @@ final class PakRs {
         }
 
         String jarPath = String.format("%s/%s%s", libArch, libName, libExt);
-        URL libUrl = ZStreamRef.class.getClassLoader().getResource(jarPath);
+        URL libUrl = PakRs.class.getClassLoader().getResource(jarPath);
         if (libUrl == null) {
             String message = String.format("Unsupported platform %s/%s", osName, osArch);
             throw new RuntimeException(message);
@@ -98,7 +98,7 @@ final class PakRs {
 
     static final MethodHandle deflateGetDictionaryCritical = linker.downcallHandle(
         lookup.find("deflate_get_dictionary_critical").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
         Linker.Option.critical(true)
     );
 
@@ -136,7 +136,7 @@ final class PakRs {
 
     static final MethodHandle inflateGetDictionaryCritical = linker.downcallHandle(
         lookup.find("inflate_get_dictionary_critical").orElseThrow(),
-        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
         Linker.Option.critical(true)
     );
 
