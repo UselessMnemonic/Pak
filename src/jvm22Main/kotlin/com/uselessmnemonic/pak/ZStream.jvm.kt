@@ -5,7 +5,7 @@ import kotlin.IllegalArgumentException
 import kotlin.IllegalStateException
 
 /**
- * An implementation of ZStream which uses the Foreign Function and Memory API to bind ZLib.
+ * An implementation of ZStream which uses the Foreign Function and Memory API.
  */
 class JavaZStream : ZStream {
     private val zRef = ZStreamRefImpl()
