@@ -2,8 +2,12 @@ mod zlib;
 
 use zlib::ZStream;
 use std::ptr::null_mut;
+use jni::{JNIEnv, JavaVM};
+use jni::objects::{JObject, JClass, JByteArray};
 
 const Z_STREAM_ERROR: i32 = -2;
+
+/** Non-JNI exports */
 
 #[no_mangle]
 pub unsafe extern "C" fn deflate_init(stream: *mut ZStream, level: i32) -> i32 {
@@ -162,4 +166,34 @@ pub unsafe extern "C" fn inflate_end(stream: *mut ZStream) -> i32 {
         None => return Z_STREAM_ERROR
     };
     stream.inflate_end()
+}
+
+/** JNI/Dalvik exports */
+
+#[no_mangle]
+pub unsafe extern "C" fn JavaCritical_com_uselessmnemonic_pak_PakRs_newStream() -> u64 {
+    ZStream::new_raw() as usize as u64
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_uselessmnemonic_pak_PakRs_newStream(_: JNIEnv, _: JClass) -> u64 {
+    ZStream::new_raw() as usize as u64
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn JavaCritical_com_uselessmnemonic_pak_PakRs_deleteStream(handle: u64) {
+    let raw = handle as usize as *mut ZStream;
+    if raw.is_null() {
+        return;
+    }
+    _ = Box::from_raw(raw);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_uselessmnemonic_pak_PakRs_deleteStream(_: JNIEnv, _: JClass, handle: u64) {
+    let raw = handle as usize as *mut ZStream;
+    if raw.is_null() {
+        return;
+    }
+    _ = Box::from_raw(raw);
 }

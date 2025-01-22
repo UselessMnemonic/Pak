@@ -11,3 +11,4 @@ name = "pak"
 
 [dependencies]
 libloading = "0.8"
+jni = "0.21.1"

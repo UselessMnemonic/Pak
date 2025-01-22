@@ -13,7 +13,7 @@ repositories {
 kotlin {
     jvm {
         compilerOptions {
-            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22
             moduleName = "com.uselessmnemonic.pak"
         }
     }
@@ -30,7 +30,7 @@ kotlin {
         jvmMain {
             dependencies {
                 implementation(project("pak-java:api"))
-                implementation(project("pak-java:8"))
+                implementation(project("pak-java:22"))
             }
         }
         commonTest {

@@ -2,6 +2,7 @@ use std::ffi::{c_char, c_ulong, c_void, OsString};
 use std::marker::PhantomData;
 use std::env;
 use std::ops::Deref;
+use std::ptr::{null, null_mut};
 use std::sync::LazyLock;
 use libloading::Library;
 
@@ -134,6 +135,10 @@ static ZLIB: LazyLock<ZLib<'static>> = LazyLock::new(ZLib::new);
 
 impl<'s> ZStream<'s> {
 
+    pub fn new_raw() -> *mut ZStream<'s> {
+        Box::into_raw(Box::new(ZStream::default()))
+    }
+
     pub unsafe fn deflate_init(&mut self, level: i32) -> i32 {
         (ZLIB.deflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
     }
@@ -184,5 +189,27 @@ impl<'s> ZStream<'s> {
 
     pub unsafe fn inflate_end(&mut self) -> i32 {
         (ZLIB.inflate_end)(self)
+    }
+}
+
+impl<'s> Default for ZStream<'s> {
+    fn default() -> ZStream<'s> {
+        ZStream {
+            next_in: null(),
+            avail_in: 0,
+            total_in: 0,
+            next_out: null_mut(),
+            avail_out: 0,
+            total_out: 0,
+            msg: null(),
+            state: null(),
+            zalloc: None,
+            zfree: None,
+            opaque: null(),
+            data_type: 0,
+            adler: 0,
+            reserved: 0,
+            marker: Default::default(),
+        }
     }
 }
