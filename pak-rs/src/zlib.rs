@@ -75,7 +75,7 @@ struct ZLib<'z> {
 }
 
 impl<'z> ZLib<'z> {
-    fn new() -> ZLib<'z> {
+    fn new() -> Self {
         let path = match env::var("ZLIB_LIBRARY") {
             Ok(path) => OsString::from(path),
             Err(cause) => match cause {
@@ -105,7 +105,7 @@ impl<'z> ZLib<'z> {
             let inflate_reset = library.get::<ZInflateResetFn>(b"inflateReset\0").unwrap().deref().to_owned();
             let inflate_end = library.get::<ZInflateEndFn>(b"inflateEnd\0").unwrap().deref().to_owned();
 
-            ZLib {
+            Self {
                 library,
                 zlib_version,
                 deflate_init,
@@ -135,12 +135,12 @@ static ZLIB: LazyLock<ZLib<'static>> = LazyLock::new(ZLib::new);
 
 impl<'s> ZStream<'s> {
 
-    pub fn new_raw() -> *mut ZStream<'s> {
+    pub fn new_raw() -> *mut Self {
         Box::into_raw(Box::new(ZStream::default()))
     }
 
     pub unsafe fn deflate_init(&mut self, level: i32) -> i32 {
-        (ZLIB.deflate_init)(self, level, ZLIB.zlib_version, size_of::<ZStream>() as u32)
+        (ZLIB.deflate_init)(self, level, ZLIB.zlib_version, size_of::<Self>() as u32)
     }
 
     pub unsafe fn deflate_params(&mut self, level: i32, strategy: i32) -> i32 {
@@ -168,7 +168,7 @@ impl<'s> ZStream<'s> {
     }
 
     pub unsafe fn inflate_init(&mut self) -> i32 {
-        (ZLIB.inflate_init)(self, ZLIB.zlib_version, size_of::<ZStream>() as u32)
+        (ZLIB.inflate_init)(self, ZLIB.zlib_version, size_of::<Self>() as u32)
     }
 
     pub unsafe fn inflate_get_dictionary(&mut self, dictionary: *mut u8, size: *mut u32) -> i32 {
@@ -193,8 +193,8 @@ impl<'s> ZStream<'s> {
 }
 
 impl<'s> Default for ZStream<'s> {
-    fn default() -> ZStream<'s> {
-        ZStream {
+    fn default() -> Self {
+        Self {
             next_in: null(),
             avail_in: 0,
             total_in: 0,
