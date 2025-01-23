@@ -2,6 +2,7 @@ package com.uselessmnemonic.pak;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -36,7 +37,7 @@ public final class ZStreamRefImpl implements ZStreamRef {
         }
 
         String jarPath = String.format("%s/%s%s", libArch, libName, libExt);
-        URL libUrl = PakRs.class.getClassLoader().getResource(jarPath);
+        URL libUrl = ZStreamRefImpl.class.getClassLoader().getResource(jarPath);
         if (libUrl == null) {
             String message = String.format("Unsupported platform %s/%s", osName, osArch);
             throw new RuntimeException(message);
@@ -52,26 +53,30 @@ public final class ZStreamRefImpl implements ZStreamRef {
         }
     }
 
-    private final long stream = PakRs.newStream();
+    private static native long newStream();
+    private static native void deleteStream(long handle);
+
+    private static native int deflateInit(long streamRef, int level);
+    private static native int deflateReset(long streamRef);
+    private static native int deflateEnd(long streamRef);
+
+    private static native int inflateInit(long streamRef);
+    private static native int inflateReset(long streamRef);
+    private static native int inflateEnd(long streamRef);
+
+    private final long stream = newStream();
     private byte[] input = null;
     private byte[] output = null;
 
-    private volatile int availIn = 0;
-    private volatile int availOut = 0;
-    private volatile long totalIn = 0;
-    private volatile long totalOut = 0;
-    private volatile long adler = 1;
+    private int availIn = 0;
+    private int availOut = 0;
+    private long totalIn = 0;
+    private long totalOut = 0;
+    private long adler = 1;
 
-    public void setInput(byte[] input) {
-        this.input = input;
-        if (input == null) return;
-        PakRs.setInput(stream, 0, input.length);
-    }
+    private native void setInput(long handle, int offset, int length);
 
     public void setInput(byte[] input, int offset, int length) {
-        if (input == null) {
-            throw new IllegalArgumentException("Input cannot be null");
-        }
         if (offset < 0) {
             String message = String.format("Offset cannot be negative, was %d", offset);
             throw new IllegalArgumentException(message);
@@ -84,14 +89,16 @@ public final class ZStreamRefImpl implements ZStreamRef {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
         this.input = input;
-        PakRs.setInput(stream, offset, length);
+        this.availIn = length;
+        this.availOut = length;
+        setInput(stream, offset, length);
     }
 
-    public void setOutput(byte[] output) {
-        this.output = output;
-        if (output == null) return;
-        PakRs.setOutput(stream, 0, input.length);
+    public void setInput(byte[] input) {
+        setInput(input, 0, input.length);
     }
+
+    private native void setOutput(long handle, int offset, int length);
 
     public void setOutput(byte[] output, int offset, int length) {
         if (output == null) {
@@ -110,7 +117,11 @@ public final class ZStreamRefImpl implements ZStreamRef {
             throw new IllegalArgumentException("Offset and length exceed array bounds");
         }
         this.output = output;
-        PakRs.setOutput(stream, offset, length);
+        setOutput(stream, offset, length);
+    }
+
+    public void setOutput(byte[] output) {
+        setOutput(output, 0, input.length);
     }
 
     @Override
@@ -135,9 +146,7 @@ public final class ZStreamRefImpl implements ZStreamRef {
         return adler;
     }
 
-    public String getMsg() {
-        return PakRs.getMsg(stream);
-    }
+    public native String getMsg();
 
     public int deflateInit(int level) {
         return PakRs.deflateInit(stream, level);
