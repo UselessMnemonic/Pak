@@ -13,34 +13,6 @@ struct JNIContext {
 
 static mut CONTEXT: OnceLock<JNIContext> = OnceLock::new();
 
-#[cfg(target_os = "android")]
-extern "C" fn new_stream() -> u64 {
-    ZStream::new_raw() as usize as u64
-}
-
-#[cfg(not(target_os = "android"))]
-extern "C" fn new_stream(_: JNIEnv, _: JClass) -> u64 {
-    ZStream::new_raw() as usize as u64
-}
-
-#[cfg(target_os = "android")]
-extern "C" fn delete_stream(handle: u64) {
-    let raw = handle as usize as *mut ZStream;
-    if raw.is_null() {
-        return;
-    }
-    _ = Box::from_raw(raw);
-}
-
-#[cfg(not(target_os = "android"))]
-unsafe extern "C" fn delete_stream(_: JNIEnv, _: JClass, handle: u64) {
-    let raw = handle as usize as *mut ZStream;
-    if raw.is_null() {
-        return;
-    }
-    _ = Box::from_raw(raw);
-}
-
 #[no_mangle]
 pub extern "C" fn JNI_OnLoad(jvm: JavaVM, _: *const c_void) -> i32 {
     let env = match jvm.get_env() {
@@ -49,8 +21,32 @@ pub extern "C" fn JNI_OnLoad(jvm: JavaVM, _: *const c_void) -> i32 {
     };
     match on_load(env) {
         Ok(_) => JNIVersion::V6.into(),
-        Err(_) => return JNI_ERR
+        Err(_) => JNI_ERR
     }
+}
+
+#[no_mangle]
+pub extern "C" fn JNI_OnUnload(jvm: JavaVM, _: *const c_void) {
+    let env = match jvm.get_env() {
+        Ok(it) => it,
+        Err(_) => return
+    };
+    _ = match unsafe { CONTEXT.take() } {
+        Some(it) => it,
+        None => return
+    };
+}
+
+extern "C" fn new_stream(_: JNIEnv, _: JClass) -> u64 {
+    ZStream::new_raw() as usize as u64
+}
+
+unsafe extern "C" fn delete_stream(_: JNIEnv, _: JClass, handle: u64) {
+    let raw = handle as usize as *mut ZStream;
+    if raw.is_null() {
+        return;
+    }
+    _ = Box::from_raw(raw);
 }
 
 fn on_load(env: JNIEnv) -> Result<(), Error> {
@@ -67,16 +63,4 @@ fn on_load(env: JNIEnv) -> Result<(), Error> {
         receiver_class
     });
     Ok(())
-}
-
-#[no_mangle]
-pub extern "C" fn JNI_OnUnload(jvm: JavaVM, _: *const c_void) {
-    let env = match jvm.get_env() {
-        Ok(it) => it,
-        Err(_) => return
-    };
-    _ = match unsafe { CONTEXT.take() } {
-        Some(it) => it,
-        None => return
-    };
 }

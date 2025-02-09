@@ -108,7 +108,7 @@ public final class ZStreamRefImpl implements ZStreamRef {
     public native String getMsg();
 
     public int deflateInit(int level) {
-        return PakRs.deflateInit(stream, level);
+        return deflateInit(stream, level);
     }
 
     public int deflateParams(int level, int strategy) {
@@ -170,15 +170,15 @@ public final class ZStreamRefImpl implements ZStreamRef {
     }
 
     public int inflate(int flush) {
-        return PakRs.inflate(stream, input, output, flush);
+        return inflate(stream, input, output, flush);
     }
 
     public int inflateReset() {
-        return PakRs.inflateReset(stream);
+        return inflateReset(stream);
     }
 
     public int inflateEnd() {
-        return PakRs.inflateEnd(stream);
+        return inflateEnd(stream);
     }
 
     @Override
